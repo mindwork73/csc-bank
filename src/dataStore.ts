@@ -320,13 +320,24 @@ export function getStoredState(): CSCState {
 
         if (needsRestruct) {
           parsed.members = INITIAL_MEMBERS;
+          try {
+            localStorage.setItem('csc_portal_state_v1', JSON.stringify(parsed));
+          } catch (err) {
+            console.error('Failed to save migrated state: ', err);
+          }
         }
 
         if (!parsed.brokerItems) {
           parsed.brokerItems = INITIAL_BROKER_ITEMS;
+          try {
+            localStorage.setItem('csc_portal_state_v1', JSON.stringify(parsed));
+          } catch (err) {}
         }
         if (!parsed.brokerShipments) {
           parsed.brokerShipments = INITIAL_BROKER_SHIPMENTS;
+          try {
+            localStorage.setItem('csc_portal_state_v1', JSON.stringify(parsed));
+          } catch (err) {}
         }
         return parsed;
       }

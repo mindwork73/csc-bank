@@ -281,7 +281,7 @@ export default function ImportView({
           parcelId: null,
           affectsCommonFund: true,
           splitBetweenMembers: true,
-          notes: 'Закуп плотных коробок CSC и упаковочного скотча.',
+          notes: 'Покупка плотных коробок CSC и упаковочного скотча.',
           createdAt: new Date().toISOString()
         }
       ];
