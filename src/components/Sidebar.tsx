@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   TrendingUp, 
   ShoppingCart, 
@@ -58,6 +58,34 @@ export default function Sidebar({
   onChangeRole
 }: SidebarProps) {
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showPalette, setShowPalette] = useState(false);
+  const [paletteQuery, setPaletteQuery] = useState('');
+  const [lastSyncTime, setLastSyncTime] = useState('только что');
+  
+  // Dynamic sync age timer
+  useEffect(() => {
+    const intervals = ['только что', '1 мин назад', '3 мин назад', '5 мин назад', '10 мин назад'];
+    let idx = 0;
+    const intervalId = setInterval(() => {
+      if (idx < intervals.length - 1) {
+        idx++;
+        setLastSyncTime(intervals[idx]);
+      }
+    }, 60000);
+    return () => clearInterval(intervalId);
+  }, []);
+
+  // Global Ctrl+K trigger binding
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setShowPalette(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Grouped Navigation Items matching instructions
   const navigationGroups = [
@@ -191,17 +219,34 @@ export default function Sidebar({
             darkMode ? 'border-[#1D212A] text-[#8E939E] bg-[#0A0B0E]/50' : 'border-[#EDF2F7] text-slate-500 bg-slate-50'
           }`}>
             <div className="flex justify-between items-center">
-              <span className="flex items-center gap-1">
-                <Globe className="h-3.5 w-3.5 text-slate-500" /> КАНАЛ СВЯЗИ:
+              <span className="flex items-center gap-1 text-[9px] uppercase">
+                <Globe className="h-3 w-3 text-slate-500" /> Среда:
               </span>
-              <span className={`font-bold uppercase ${darkMode ? 'text-zinc-200' : 'text-slate-800'}`}>UK Hub 🌐</span>
+              <span className={`text-[9px] font-bold font-mono px-1 py-0.5 rounded ${
+                darkMode ? 'bg-slate-800/60 text-slate-350' : 'bg-slate-200 text-slate-700'
+              }`}>CSC-PROD</span>
+            </div>
+
+            <div className="flex justify-between items-center">
+              <span className="flex items-center gap-1 text-[9px] uppercase">
+                <Globe className="h-3 w-3 text-slate-500" /> Связь:
+              </span>
+              <span className={`font-bold uppercase ${darkMode ? 'text-zinc-200' : 'text-slate-850'}`}>UK Hub 🌐</span>
             </div>
             
             <div className="flex justify-between items-center">
-              <span className="flex items-center gap-1">
-                <Database className="h-3.5 w-3.5 text-slate-500" /> СИНХРОНИЗАЦИЯ:
+              <span className="flex items-center gap-1 text-[9px] uppercase">
+                <Database className="h-3 w-3 text-slate-500" /> Синк:
               </span>
-              <span className="text-emerald-500 font-bold">100% OK</span>
+              <span className="text-emerald-400 font-bold flex items-center gap-1">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>100% (актив.)</span>
+              </span>
+            </div>
+
+            <div className="flex justify-between items-center text-[9px] text-[#5A6072]">
+              <span>ОБНОВЛЕНО:</span>
+              <span>{lastSyncTime}</span>
             </div>
 
             <div className="flex justify-between items-center pt-1.5 border-t border-dashed border-slate-700/20">
@@ -224,16 +269,16 @@ export default function Sidebar({
           }`}>
             
             {/* Global Search input & Premium hotkey indicator */}
-            <div className="relative w-80 max-w-xs">
+            <div className="relative w-80 max-w-xs cursor-pointer" onClick={() => setShowPalette(true)}>
               <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-[#585E6A]">
                 <Search className="h-4 w-4" />
               </span>
               <input
                 type="text"
+                readOnly
+                placeholder="Поиск / терминал (Ctrl+K)..."
                 value={globalSearch}
-                onChange={(e) => setGlobalSearch(e.target.value)}
-                placeholder="Поиск по контакту, товару или заказу..."
-                className={`w-full pl-9 pr-12 py-2 border rounded-lg text-xs font-medium font-mono tracking-tight focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all ${
+                className={`w-full cursor-pointer pl-9 pr-12 py-2 border rounded-lg text-xs font-medium font-mono tracking-tight focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all ${
                   darkMode 
                     ? 'bg-[#141722] border-[#222735] text-[#ECEFF4] placeholder-[#5A6072] focus:border-slate-500' 
                     : 'bg-[#F2F4F8] border-[#E2E8F0] text-slate-800 placeholder-slate-400 focus:border-slate-350'
@@ -368,6 +413,144 @@ export default function Sidebar({
           </main>
         </div>
       </div>
+
+      {/* COMMAND PALETTE DIALOG */}
+      {showPalette && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center pt-24 px-4 bg-black/70 backdrop-blur-sm transition-all">
+          <div className={`w-full max-w-xl rounded-xl border shadow-2xl p-4 overflow-hidden font-sans ${
+            darkMode ? 'bg-[#11131A] border-[#2E364A] text-white' : 'bg-white border-[#E2E8F0] text-slate-800'
+          }`}>
+            <div className="flex items-center space-x-3 pb-3 border-b border-slate-700/20">
+              <Command className="h-5 w-5 text-emerald-400 animate-pulse" />
+              <input
+                type="text"
+                autoFocus
+                value={paletteQuery}
+                onChange={(e) => setPaletteQuery(e.target.value)}
+                placeholder="Что искать? (заказ, транзакцию, вкладку, сменить роль...)"
+                className="flex-1 bg-transparent border-0 focus:outline-none focus:ring-0 text-xs font-mono placeholder-slate-500"
+              />
+              <button 
+                onClick={() => { setShowPalette(false); setPaletteQuery(''); }}
+                className="text-[9px] uppercase font-mono px-2 py-1 rounded bg-rose-500/10 hover:bg-rose-500/20 text-rose-450 font-bold"
+              >
+                закрыть [esc]
+              </button>
+            </div>
+
+            {/* List options based on paletteQuery */}
+            <div className="max-h-80 overflow-y-auto mt-3 space-y-4">
+              {/* Commands */}
+              <div>
+                <span className="block text-[9px] font-mono tracking-widest text-[#5A6072] uppercase font-bold mb-1.5">
+                  БЫСТРЫЕ ПЕРЕХОДЫ И РАЗДЕЛЫ ПОДДЕРЖКИ
+                </span>
+                <div className="space-y-1">
+                  {[
+                    { id: 'dashboard', label: 'Консоль / Cockpit - Сводные показатели группы', kw: 'консоль cockpit метрики dashboard', icon: TrendingUp },
+                    { id: 'orders', label: 'Заказы / CRM - Реестр и фильтры заказов', kw: 'заказы crm реестр ордера клиенты', icon: ShoppingCart },
+                    { id: 'parcels', label: 'Логистика Англии - Сводные боксы и брокер', kw: 'логистика англии посылки коробки лондон borker', icon: Package },
+                    { id: 'finance', label: 'Бухучет / Ledger - Логи транзакций и общак', kw: 'бухучет ledger финансы касса общак', icon: Wallet },
+                    { id: 'analytics', label: 'Аналитика маржи - Анализ маржинальности P&L', kw: 'аналитика маржи маржинальность pnl', icon: PieChart },
+                    { id: 'journal', label: 'Sync Журнал - Логи импорта из Google Sheets', kw: 'sync журнал импорт листы сессии сеансы', icon: History },
+                    { id: 'audit', label: 'Аудит систем - Логирование действий операторов', kw: 'аудит систем безопасность логи audit', icon: ClipboardList },
+                    { id: 'import', label: 'Импорт Списков - Ручная загрузка и парсинг', kw: 'импорт списков google таблицы csv xlsx', icon: Import },
+                    { id: 'settings', label: 'Настройки системы - Курс валют и кураторы', kw: 'настройки системы курс exchange rate', icon: Settings },
+                  ]
+                    .filter(cmd => !paletteQuery || cmd.label.toLowerCase().includes(paletteQuery.toLowerCase()) || cmd.kw.toLowerCase().includes(paletteQuery.toLowerCase()))
+                    .map(cmd => {
+                      const Icon = cmd.icon;
+                      return (
+                        <button
+                          key={cmd.id}
+                          onClick={() => {
+                            setCurrentTab(cmd.id);
+                            setShowPalette(false);
+                            setPaletteQuery('');
+                          }}
+                          className={`w-full text-left flex items-center justify-between p-2 rounded-lg text-xs font-semibold transition-all ${
+                            darkMode ? 'hover:bg-slate-800/40 text-slate-300 hover:text-white' : 'hover:bg-slate-100 text-slate-700'
+                          }`}
+                        >
+                          <div className="flex items-center space-x-2.5">
+                            <Icon className="h-4 w-4 text-slate-500" />
+                            <span>{cmd.label}</span>
+                          </div>
+                          <span className="text-[9px] font-mono text-[#5A6072] uppercase font-semibold">перейти</span>
+                        </button>
+                      );
+                    })}
+                </div>
+              </div>
+
+              {/* Roles switcher */}
+              <div>
+                <span className="block text-[9px] font-mono tracking-widest text-[#5A6072] uppercase font-bold mb-1.5">
+                  УСТАНОВИТЬ РЕЖИМ ДОСТУПА В СИСТЕМЕ
+                </span>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {[
+                    { id: 'root', label: '⚙️ ROOT SYSTEM', kw: 'root рут суперадмин' },
+                    { id: 'admin', label: '💼 ADMIN PORTAL', kw: 'admin админ администратор' },
+                    { id: 'finance', label: '📊 FINANCE LEDGER', kw: 'finance бухгалтер кассир финансы' },
+                    { id: 'operations', label: '🚚 OPERATIONS CRM', kw: 'operations куратор менеджер продажи' },
+                    { id: 'logistics', label: '🇬🇧 UK WAREHOUSE', kw: 'logistics склад англия упаковка box' },
+                    { id: 'readonly', label: '👁️ READONLY AUDIT', kw: 'readonly просмотр аудит только чтение' },
+                  ]
+                    .filter(r => !paletteQuery || r.label.toLowerCase().includes(paletteQuery.toLowerCase()) || r.kw.toLowerCase().includes(paletteQuery.toLowerCase()))
+                    .map(r => (
+                      <button
+                        key={r.id}
+                        onClick={() => {
+                          onChangeRole(r.id as any);
+                          setShowPalette(false);
+                          setPaletteQuery('');
+                        }}
+                        className={`text-left p-2 rounded-lg text-[10px] font-bold font-mono transition-all border ${
+                          currentRole === r.id
+                            ? darkMode ? 'bg-emerald-500/10 border-emerald-500/35 text-emerald-400' : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                            : darkMode ? 'bg-slate-900/65 border-[#222735] text-slate-400 hover:border-slate-700 hover:text-white' : 'bg-slate-55 shadow-sm border-slate-200 text-slate-600 hover:bg-slate-100'
+                        }`}
+                      >
+                        {r.label}
+                      </button>
+                    ))}
+                </div>
+              </div>
+
+              {/* Theme toggle command */}
+              {(!paletteQuery || 'тема'.includes(paletteQuery.toLowerCase()) || 'theme'.includes(paletteQuery.toLowerCase()) || 'светлая'.includes(paletteQuery.toLowerCase()) || 'темная'.includes(paletteQuery.toLowerCase())) && (
+                <div>
+                  <span className="block text-[9px] font-mono tracking-widest text-[#5A6072] uppercase font-bold mb-1.5">
+                    БЛЕНДИНГ ИНТЕРФЕЙСА
+                  </span>
+                  <button
+                    onClick={() => {
+                      setDarkMode(!darkMode);
+                      setShowPalette(false);
+                      setPaletteQuery('');
+                    }}
+                    className={`w-full text-left flex items-center justify-between p-2 rounded-lg text-xs font-semibold transition-all ${
+                      darkMode ? 'hover:bg-slate-800/40 text-slate-300 hover:text-white' : 'hover:bg-slate-100 text-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-2.5">
+                      {darkMode ? <Sun className="h-4 w-4 text-amber-400" /> : <Moon className="h-4 w-4 text-indigo-500" />}
+                      <span>Переключить тему ({darkMode ? 'на Светлую' : 'на Тёмную'})</span>
+                    </div>
+                    <span className="text-[9px] font-mono text-[#5A6072] uppercase">сменить</span>
+                  </button>
+                </div>
+              )}
+            </div>
+            
+            <div className="border-t border-slate-700/20 pt-2 px-1 mt-3 flex justify-between items-center text-[9px] font-mono text-slate-500">
+              <span>Для быстрого вызова используйте Ctrl+K или клик по поиску</span>
+              <span>CSC Terminal v1.6</span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

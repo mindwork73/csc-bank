@@ -495,6 +495,119 @@ export default function DashboardView({
 
       </div>
 
+      {/* OPERATIONAL ALERTS & EXCEPTIONS SURFACE */}
+      <div className={`p-5 rounded-xl border font-sans relative overflow-hidden transition-all ${
+        darkMode ? 'bg-[#12151D] border-red-500/15' : 'bg-red-50/15 border-red-100 shadow-sm'
+      }`}>
+        <div className="flex items-center justify-between mb-4 border-b pb-3 border-slate-700/20">
+          <div className="flex items-center space-x-2">
+            <AlertTriangle className="h-4 w-4 text-rose-500 animate-pulse" />
+            <div>
+              <h4 className="text-xs uppercase font-mono tracking-wider text-rose-450 font-extrabold">Панель Исключений & Аномалий (Operational Anomaly Surface)</h4>
+              <p className="text-[10px] text-slate-500 font-mono">Автоматический аудит узких мест, кассовых дыр и проблемных контрактов</p>
+            </div>
+          </div>
+          <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-rose-500/10 text-rose-450 border border-rose-500/20 animate-pulse uppercase font-extrabold">Внимание оператора</span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Anomaly 1: Problem orders */}
+          <div className={`p-3 rounded-lg border text-xs ${
+            darkMode ? 'bg-[#0E1015] border-[#222735]' : 'bg-white border-slate-200'
+          }`}>
+            <span className="block text-[10px] font-mono font-bold uppercase tracking-wide text-amber-500 mb-1.5 flex items-center justify-between">
+              <span>⚠️ Проблемные контракты</span>
+              <span className="bg-amber-500/10 text-amber-500 px-1.5 rounded text-[8.5px]">{problemOrders.length}</span>
+            </span>
+            {problemOrders.length > 0 ? (
+              <div className="space-y-2 max-h-36 overflow-y-auto">
+                {problemOrders.map(o => (
+                  <div key={o.id} className="p-2 rounded bg-amber-550/5 border border-amber-500/10 flex justify-between items-center text-[10.5px]">
+                    <div className="truncate pr-2">
+                      <span className="font-mono font-bold text-amber-400 block">{o.id} &bull; {o.productName}</span>
+                      <span className="text-slate-400 text-[10px] truncate block">Куратор: {members.find(m => m.id === o.assignedTo)?.name || 'Не назначен'}</span>
+                    </div>
+                    <button 
+                      onClick={() => onSwitchTab('orders')}
+                      className="text-[9px] font-mono font-extrabold bg-amber-500/15 text-amber-450 px-2 py-1 rounded hover:bg-amber-500/25 shrink-0"
+                    >
+                      Решить
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-slate-500 font-mono text-[10.5px] leading-relaxed">
+                🎉 Исключений не обнаружено. Все заказы в реестре имеют штатные статусы движения.
+              </p>
+            )}
+          </div>
+
+          {/* Anomaly 2: Negative Valuations / Payout limits */}
+          <div className={`p-3 rounded-lg border text-xs ${
+            darkMode ? 'bg-[#0E1015] border-[#222735]' : 'bg-white border-slate-200'
+          }`}>
+            <span className="block text-[10px] font-mono font-bold uppercase tracking-wide text-rose-500 mb-1.5 flex items-center justify-between">
+              <span>💸 Кассовые перерасходы</span>
+              <span className="bg-rose-500/10 text-rose-500 px-1.5 rounded text-[8.5px]">
+                {members.filter(m => (calculatedBalances.members[m.id] || 0) < 0).length}
+              </span>
+            </span>
+            {members.filter(m => (calculatedBalances.members[m.id] || 0) < 0).length > 0 ? (
+              <div className="space-y-2 max-h-36 overflow-y-auto">
+                {members.filter(m => (calculatedBalances.members[m.id] || 0) < 0).map(m => (
+                  <div key={m.id} className="p-2 rounded bg-rose-500/5 border border-rose-500/10 flex justify-between items-center text-[10.5px]">
+                    <div className="truncate pr-2">
+                      <span className="font-bold text-rose-400 block truncate">{m.name}</span>
+                      <span className="text-slate-400 text-[10px] block">Кошель ушёл в минус</span>
+                    </div>
+                    <span className="text-rose-450 font-mono font-bold shrink-0">{formatCurrency(calculatedBalances.members[m.id] || 0)}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-slate-500 font-mono text-[10.5px] leading-relaxed">
+                ✅ Все фонды кураторов сбалансированы. Лимиты вывода соблюдены, отрицательных сальдо нет.
+              </p>
+            )}
+          </div>
+
+          {/* Anomaly 3: Logistics Delays / Exceptions */}
+          <div className={`p-3 rounded-lg border text-xs ${
+            darkMode ? 'bg-[#0E1015] border-[#222735]' : 'bg-white border-slate-200'
+          }`}>
+            <span className="block text-[10px] font-mono font-bold uppercase tracking-wide text-indigo-400 mb-1.5 flex items-center justify-between">
+              <span>🇬🇧 Задержки сборников</span>
+              <span className="bg-indigo-500/10 text-indigo-400 px-1.5 rounded text-[8.5px]">
+                {parcels.filter(p => !p.trackingCode && p.status !== ParcelStatus.CLOSED).length}
+              </span>
+            </span>
+            {parcels.filter(p => !p.trackingCode && p.status !== ParcelStatus.CLOSED).length > 0 ? (
+              <div className="space-y-2 max-h-36 overflow-y-auto">
+                {parcels.filter(p => !p.trackingCode && p.status !== ParcelStatus.CLOSED).map(p => (
+                  <div key={p.id} className="p-2 rounded bg-indigo-500/5 border border-indigo-500/10 flex justify-between items-center text-[10.5px]">
+                    <div className="truncate pr-2">
+                      <span className="font-bold text-slate-300 block truncate">{p.id} - {p.title}</span>
+                      <span className="text-slate-400 text-[10px]">Отсутрует трекинг-код</span>
+                    </div>
+                    <button 
+                      onClick={() => onSwitchTab('parcels')}
+                      className="text-[9px] font-mono font-extrabold bg-indigo-500/15 text-indigo-400 px-2 py-1 rounded hover:bg-indigo-500/25 shrink-0"
+                    >
+                      Внести
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-slate-500 font-mono text-[10.5px] leading-relaxed">
+                ✈️ Все сборные посылки Великобритании укомплектованы активным трекинг-номером перевозчика.
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* 3. CENTRAL PANEL GRID: ANALYTICS VS EXPENSES */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         
