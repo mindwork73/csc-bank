@@ -473,10 +473,15 @@ export default function App() {
           <SettingsView 
             settings={state.settings}
             members={state.members}
+            orders={state.orders}
+            finance={state.finance}
+            calculatedBalances={calculatedBalances}
+            onAddFinanceEntry={handleAddFinanceEntry}
             onUpdateSettings={handleUpdateSettings}
             onUpdateMembers={handleUpdateMembers}
             auditLogs={state.logs}
             darkMode={darkMode}
+            currentRole={currentRole}
             onShowToast={showToast}
           />
         );

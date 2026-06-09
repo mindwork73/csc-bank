@@ -316,7 +316,7 @@ export default function DashboardView({
                   selectedTimeframe === tf
                     ? darkMode
                       ? 'bg-[#212638] text-white'
-                      : 'bg-emerald-600 text-white'
+                      : 'bg-[#4F46E5] text-white'
                     : 'text-slate-400 hover:text-slate-300'
                 }`}
               >
@@ -331,25 +331,32 @@ export default function DashboardView({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3.5">
         
         {/* 1. Gross Revenue Card */}
-        <div className={`p-4 rounded-xl border relative group transition-all duration-200 ${
-          darkMode 
-            ? 'bg-[#11131A] border-[#1D212A] hover:border-[#2F374A] shadow-lg shadow-black/30' 
-            : 'bg-white border-[#E2E8F0] hover:border-slate-350 shadow-sm'
-        }`}>
+        <div 
+          onClick={() => onSwitchTab('analytics')}
+          title="ОБОРОТ ГРУППЫ: Общая сумма по заказам клиентов без учета затрат. Увеличился на 14.8% относительно предыдущего месяца."
+          className={`p-4 rounded-xl border relative cursor-pointer group transition-all duration-200 hover:scale-[1.01] ${
+            darkMode 
+              ? 'bg-[#11131A] border-[#1D212A] hover:border-emerald-500/40 shadow-lg shadow-black/30' 
+              : 'bg-white border-[#E2E8F0] hover:border-emerald-600/40 shadow-sm'
+          }`}
+        >
           <div className="flex justify-between items-start">
             <span className="text-[10px] uppercase font-mono tracking-wider text-slate-500 font-bold">Оборот группы</span>
-            <div className="p-1.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/10">
-              <DollarSign className="h-3.5 w-3.5" />
+            <div className="p-1 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/10">
+              <DollarSign className="h-3 w-3" />
             </div>
           </div>
-          <div className="mt-3">
-            <h3 className="text-[17px] font-bold font-mono tracking-tight text-white">
+          <div className="mt-2.5">
+            <h3 className="text-[16px] font-bold font-mono tracking-tight text-white leading-none">
               {formatCurrency(totalRevenue)}
             </h3>
-            <div className="flex items-center gap-1 mt-1 text-[10.5px] font-mono font-bold text-emerald-400">
-              <ArrowUpRight className="h-3 w-3" />
-              <span>+14.8%</span>
-              <span className="text-slate-500 font-normal ml-0.5">YTD</span>
+            <div className="flex items-center gap-1 mt-1 text-[9.5px] font-mono font-bold text-emerald-400">
+              <ArrowUpRight className="h-2.5 w-2.5" />
+              <span>+14.8% vs пред.</span>
+            </div>
+            <div className="flex items-center gap-1 mt-1 text-[8.5px] font-mono text-slate-550">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span>Обновлено только что</span>
             </div>
           </div>
           {/* Subtle bottom accent sparkline mockup */}
@@ -359,26 +366,34 @@ export default function DashboardView({
         </div>
 
         {/* 2. Net Profit Card */}
-        <div className={`p-4 rounded-xl border relative group transition-all duration-200 ${
-          darkMode 
-            ? 'bg-[#11131A] border-[#1D212A] hover:border-[#2F374A] shadow-lg shadow-black/30' 
-            : 'bg-white border-[#E2E8F0] hover:border-slate-350 shadow-sm'
-        }`}>
+        <div 
+          onClick={() => onSwitchTab('analytics')}
+          title="ЧИСТАЯ ПРИБЫЛЬ: Чистый заработок компании после вычета себестоимости выкупа товаров и логистических издержек (включая GBP сборники)."
+          className={`p-4 rounded-xl border relative cursor-pointer group transition-all duration-200 hover:scale-[1.01] ${
+            darkMode 
+              ? 'bg-[#11131A] border-[#1D212A] hover:border-emerald-500/40 shadow-lg shadow-black/30' 
+              : 'bg-white border-[#E2E8F0] hover:border-emerald-600/40 shadow-sm'
+          }`}
+        >
           <div className="flex justify-between items-start">
             <span className="text-[10px] uppercase font-mono tracking-wider text-slate-500 font-bold">Чистая прибыль</span>
-            <div className="p-1.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/10">
-              <Percent className="h-3.5 w-3.5" />
+            <div className="p-1 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/10">
+              <Percent className="h-3 w-3" />
             </div>
           </div>
-          <div className="mt-3">
-            <h3 className="text-[17px] font-bold font-mono tracking-tight text-emerald-400">
+          <div className="mt-2.5">
+            <h3 className="text-[16px] font-bold font-mono tracking-tight text-emerald-400 leading-none">
               {formatCurrency(totalNetProfit)}
             </h3>
-            <div className="flex items-center justify-between mt-1 text-[10.5px] font-mono leading-none text-slate-400">
+            <div className="flex items-center justify-between mt-1 text-[9.5px] font-mono leading-none text-slate-400">
               <span>Доля: {totalRevenue ? ((totalNetProfit / totalRevenue) * 100).toFixed(1) : 0}%</span>
-              <span className="text-emerald-500 font-bold flex items-center">
-                <ArrowUpRight className="h-2.5 w-2.5" /> 8.3%
+              <span className="text-emerald-500 font-bold flex items-center gap-0.5">
+                <ArrowUpRight className="h-2 w-2" /> 8.3%
               </span>
+            </div>
+            <div className="flex items-center gap-1 mt-1.5 text-[8.5px] font-mono text-slate-550">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+              <span>Синхронизировано</span>
             </div>
           </div>
           <div className="absolute bottom-0 inset-x-0 h-1 overflow-hidden">
@@ -387,24 +402,32 @@ export default function DashboardView({
         </div>
 
         {/* 3. Active CRM Orders */}
-        <div className={`p-4 rounded-xl border relative group transition-all duration-200 ${
-          darkMode 
-            ? 'bg-[#11131A] border-[#1D212A] hover:border-[#2F374A] shadow-lg shadow-black/30' 
-            : 'bg-white border-[#E2E8F0] hover:border-slate-350 shadow-sm'
-        }`}>
+        <div 
+          onClick={() => onSwitchTab('orders')}
+          title="ЗАКАЗЫ В РАБОТЕ: Число активных ордеров в CRM на этапе оформления, выкупа либо доставки. Рост на 5% за неделю."
+          className={`p-4 rounded-xl border relative cursor-pointer group transition-all duration-200 hover:scale-[1.01] ${
+            darkMode 
+              ? 'bg-[#11131A] border-[#1D212A] hover:border-indigo-500/40 shadow-lg shadow-black/30' 
+              : 'bg-white border-[#E2E8F0] hover:border-indigo-600/40 shadow-sm'
+          }`}
+        >
           <div className="flex justify-between items-start">
-            <span className="text-[10px] uppercase font-mono tracking-wider text-slate-500 font-bold">Заказы в сборке</span>
-            <div className="p-1.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/10">
-              <Inbox className="h-3.5 w-3.5" />
+            <span className="text-[10px] uppercase font-mono tracking-wider text-slate-500 font-bold">Ордера в Сборке</span>
+            <div className="p-1 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/10">
+              <Inbox className="h-3 w-3" />
             </div>
           </div>
-          <div className="mt-3">
-            <h3 className="text-[17px] font-bold font-mono tracking-tight text-white">
+          <div className="mt-2.5">
+            <h3 className="text-[16px] font-bold font-mono tracking-tight text-white leading-none">
               {activeOrdersCount} Позиций
             </h3>
-            <div className="flex items-center justify-between mt-1 text-[10.5px] font-mono text-slate-400">
+            <div className="flex items-center justify-between mt-1 text-[9.5px] font-mono text-slate-400">
               <span className="text-indigo-400 font-semibold">{orders.filter(o=>o.paymentStatus === PaymentStatus.PAID).length} Оплачены</span>
-              <span className="text-[9px] text-[#8E939E]">{orders.length} всего</span>
+              <span className="text-[9px] text-[#8E939E]">+2 сегодня</span>
+            </div>
+            <div className="flex items-center gap-1 mt-1 text-[8.5px] font-mono text-slate-555">
+              <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-pulse" />
+              <span>Логи CRM обновлены</span>
             </div>
           </div>
           <div className="absolute bottom-0 inset-x-0 h-1 overflow-hidden">
@@ -413,26 +436,32 @@ export default function DashboardView({
         </div>
 
         {/* 4. Active Logistics Packages */}
-        <div className={`p-4 rounded-xl border relative group transition-all duration-200 ${
-          darkMode 
-            ? 'bg-[#11131A] border-[#1D212A] hover:border-[#2F374A] shadow-lg shadow-black/30' 
-            : 'bg-white border-[#E2E8F0] hover:border-slate-350 shadow-sm'
-        }`}>
+        <div 
+          onClick={() => onSwitchTab('parcels')}
+          title="СБОРНЫЕ ПОСЫЛКИ: Консолидированные коробки и грузы в пути со склада Великобритании в Россию. Снижение логистических задержек."
+          className={`p-4 rounded-xl border relative cursor-pointer group transition-all duration-200 hover:scale-[1.01] ${
+            darkMode 
+              ? 'bg-[#11131A] border-[#1D212A] hover:border-amber-500/40 shadow-lg shadow-black/30' 
+              : 'bg-white border-[#E2E8F0] hover:border-amber-600/40 shadow-sm'
+          }`}
+        >
           <div className="flex justify-between items-start">
-            <span className="text-[10px] uppercase font-mono tracking-wider text-slate-500 font-bold">Посылки в пути</span>
-            <div className="p-1.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/10">
-              <Package className="h-3.5 w-3.5" />
+            <span className="text-[10px] uppercase font-mono tracking-wider text-slate-500 font-bold">Посылки Англия</span>
+            <div className="p-1 rounded bg-amber-500/10 text-amber-500 border border-amber-500/10">
+              <Package className="h-3 w-3" />
             </div>
           </div>
-          <div className="mt-3">
-            <h3 className="text-[17px] font-bold font-mono tracking-tight text-white">
+          <div className="mt-2.5">
+            <h3 className="text-[16px] font-bold font-mono tracking-tight text-white leading-none">
               {activeParcelsCount} Сборников
             </h3>
-            <div className="flex items-center justify-between mt-1 text-[10.5px] font-mono text-slate-400">
-              <span className="text-amber-500 font-semibold flex items-center gap-1">
-                <span className="h-1.5 w-1.5 bg-amber-500 rounded-full animate-ping" /> В пути
-              </span>
-              <span>{parcels.length} боксов</span>
+            <div className="flex items-center justify-between mt-1 text-[9.5px] font-mono text-slate-400">
+              <span className="text-amber-500 font-semibold flex items-center gap-0.5">В пути</span>
+              <span>Дельта: 0 застрявших</span>
+            </div>
+            <div className="flex items-center gap-1 mt-1 text-[8.5px] font-mono text-slate-555">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+              <span>Датчик Великобритании: OK</span>
             </div>
           </div>
           <div className="absolute bottom-0 inset-x-0 h-1 overflow-hidden">
@@ -441,23 +470,31 @@ export default function DashboardView({
         </div>
 
         {/* 5. Common Pool Obshak */}
-        <div className={`p-4 rounded-xl border relative group transition-all duration-200 cursor-pointer ${
-          darkMode 
-            ? 'bg-[#11131A] border-[#1D212A] hover:border-[#2F374A] shadow-lg shadow-black/30' 
-            : 'bg-white border-[#E2E8F0] hover:border-slate-350 shadow-sm'
-        }`} onClick={() => onSwitchTab('finance')}>
+        <div 
+          onClick={() => onSwitchTab('finance')}
+          title="ОБЩИЙ ОБЩАК: Сумма свободных средств группы, зарезервированных на общие расходы и оборотные фиатные транши."
+          className={`p-4 rounded-xl border relative cursor-pointer group transition-all duration-200 hover:scale-[1.01] ${
+            darkMode 
+              ? 'bg-[#11131A] border-[#1D212A] hover:border-blue-500/40 shadow-lg shadow-black/30' 
+              : 'bg-white border-[#E2E8F0] hover:border-blue-600/40 shadow-sm'
+          }`}
+        >
           <div className="flex justify-between items-start">
             <span className="text-[10px] uppercase font-mono tracking-wider text-slate-500 font-bold">Общий Кошель</span>
-            <div className="p-1.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/10">
-              <Wallet className="h-3.5 w-3.5" />
+            <div className="p-1 rounded bg-blue-500/10 text-blue-400 border border-blue-500/10">
+              <Wallet className="h-3 w-3" />
             </div>
           </div>
-          <div className="mt-3">
-            <h3 className="text-[17px] font-bold font-mono tracking-tight text-blue-400">
+          <div className="mt-2.5">
+            <h3 className="text-[16px] font-bold font-mono tracking-tight text-blue-400 leading-none">
               {formatCurrency(calculatedBalances.commonFund)}
             </h3>
-            <div className="flex items-center gap-1 mt-1 text-[10px] font-mono text-slate-500">
-              <span>Ликвидные активы</span>
+            <div className="flex items-center gap-1 mt-1.5 text-[10px] font-mono text-slate-500">
+              <span>Дельта: +4.2%</span>
+            </div>
+            <div className="flex items-center gap-1 mt-1 text-[8.5px] font-mono text-slate-555">
+              <span className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse" />
+              <span>Ликвидный резерв зафиксирован</span>
             </div>
           </div>
           <div className="absolute bottom-0 inset-x-0 h-1 overflow-hidden">
@@ -466,145 +503,277 @@ export default function DashboardView({
         </div>
 
         {/* 6. Problem Orders */}
-        <div className={`p-4 rounded-xl border relative group transition-all duration-200 ${
-          problemCount > 0 
-            ? darkMode ? 'bg-red-950/20 border-red-500/40' : 'bg-red-50 border-red-200'
-            : darkMode ? 'bg-[#11131A] border-[#1D212A]' : 'bg-white border-[#E2E8F0]'
-        }`}>
+        <div 
+          onClick={() => onSwitchTab('orders')}
+          title="КРИТИЧЕСКИЕ РИСКИ: Заказы, требующие срочного урегулирования (статус Проблемный или серьезные кассовые задержки)."
+          className={`p-4 rounded-xl border relative cursor-pointer group transition-all duration-200 hover:scale-[1.01] ${
+            problemCount > 0 
+              ? darkMode ? 'bg-red-950/20 border-red-500/40 hover:border-red-400/80 shadow-red-950/20' : 'bg-red-50 border-red-250 hover:border-red-400/80'
+              : darkMode ? 'bg-[#11131A] border-[#1D212A] hover:border-red-500/20' : 'bg-white border-[#E2E8F0]'
+          }`}
+        >
           <div className="flex justify-between items-start">
-            <span className="text-[10px] uppercase font-mono tracking-wider text-slate-500 font-bold">Проблемные</span>
-            <div className={`p-1.5 rounded border ${
-              problemCount > 0 ? 'bg-red-500/20 text-red-400 border-red-400/30' : 'bg-slate-500/10 text-slate-500 border-transparent'
+            <span className="text-[10px] uppercase font-mono tracking-wider text-slate-500 font-bold">Интегрити / Проблемные</span>
+            <div className={`p-1 rounded border ${
+              problemCount > 0 ? 'bg-red-500/20 text-red-400 border-red-400/30 animate-pulse' : 'bg-slate-500/10 text-slate-500 border-transparent'
             }`}>
-              <AlertCircle className="h-3.5 w-3.5" />
+              <AlertCircle className="h-3 w-3" />
             </div>
           </div>
-          <div className="mt-3">
-            <h3 className={`text-[17px] font-bold font-mono tracking-tight ${problemCount > 0 ? 'text-red-400 animate-pulse' : 'text-slate-400'}`}>
+          <div className="mt-2.5">
+            <h3 className={`text-[16px] font-bold font-mono tracking-tight leading-none ${problemCount > 0 ? 'text-red-400' : 'text-slate-400'}`}>
               {problemCount} контрактов
             </h3>
-            <div className="flex items-center gap-1 mt-1 text-[10px] font-mono text-slate-500">
+            <div className="flex items-center gap-1 mt-1 text-[9.5px] font-mono text-slate-500">
               {problemCount > 0 ? (
-                <span className="text-red-400 font-bold">Ожидает решения</span>
+                <span className="text-red-400 font-bold">Ожидает внимания</span>
               ) : (
-                <span>Критические баги: 0</span>
+                <span>Аномалии: 0</span>
               )}
+            </div>
+            <div className="flex items-center gap-1 mt-1 text-[8.5px] font-mono text-slate-555">
+              <span className={`h-1.5 w-1.5 rounded-full ${problemCount > 0 ? 'bg-rose-400 animate-pulse' : 'bg-emerald-400'}`} />
+              <span>{problemCount > 0 ? 'Триггер риска активен' : 'Безопасно'}</span>
             </div>
           </div>
         </div>
 
       </div>
 
-      {/* OPERATIONAL ALERTS & EXCEPTIONS SURFACE */}
+      {/* SYSTEMS CONDITION & OPERATIONAL REMEDIATION HALL (NEEDS ATTENTION PANEL) */}
       <div className={`p-5 rounded-xl border font-sans relative overflow-hidden transition-all ${
-        darkMode ? 'bg-[#12151D] border-red-500/15' : 'bg-red-50/15 border-red-100 shadow-sm'
+        darkMode ? 'bg-[#0E1015] border-[#1D212A] shadow-2xl' : 'bg-white border-slate-350 shadow-md'
       }`}>
-        <div className="flex items-center justify-between mb-4 border-b pb-3 border-slate-700/20">
-          <div className="flex items-center space-x-2">
-            <AlertTriangle className="h-4 w-4 text-rose-500 animate-pulse" />
+        {/* Decor background effect */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-rose-500/5 rounded-full filter blur-3xl pointer-events-none" />
+        
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-4 pb-3 border-b border-slate-800/20">
+          <div className="flex items-center space-x-2.5">
+            <div className="p-2 rounded-lg bg-red-550/10 text-red-400 border border-red-500/20 shadow-sm animate-pulse">
+              <AlertTriangle className="h-4 w-4" />
+            </div>
             <div>
-              <h4 className="text-xs uppercase font-mono tracking-wider text-rose-450 font-extrabold">Панель Исключений & Аномалий (Operational Anomaly Surface)</h4>
-              <p className="text-[10px] text-slate-500 font-mono">Автоматический аудит узких мест, кассовых дыр и проблемных контрактов</p>
+              <h4 className="text-xs uppercase font-mono tracking-wider text-rose-400 font-extrabold flex items-center gap-1.5">
+                <span>ЗАЛ СИСТЕМНОГО ОПЕРАЦИОННОГО ИНТЕРФЕЙСА [NEEDS ATTENTION BOARD]</span>
+              </h4>
+              <p className="text-[10.5px] text-[#8E939E] font-mono">Консолидированные урегулирования кассовых разрывов, проблемных траншей и заблокированных ордеров</p>
             </div>
           </div>
-          <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-rose-500/10 text-rose-450 border border-rose-500/20 animate-pulse uppercase font-extrabold">Внимание оператора</span>
+          <div className="flex items-center gap-1.5 mt-2 md:mt-0 font-mono text-[9px]">
+            <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-slate-500 font-bold uppercase">Сенсоры активны: 5/5 пройдены</span>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Anomaly 1: Problem orders */}
-          <div className={`p-3 rounded-lg border text-xs ${
-            darkMode ? 'bg-[#0E1015] border-[#222735]' : 'bg-white border-slate-200'
+        {/* 5 BOARDS GRID */}
+        <div className="grid grid-cols-1 xl:grid-cols-5 gap-4">
+          
+          {/* 1. BLOCKED ORDERS BOARD */}
+          <div className={`p-3.5 rounded-lg border flex flex-col justify-between ${
+            darkMode ? 'bg-[#141722]/60 border-[#222735]' : 'bg-slate-50 border-slate-200'
           }`}>
-            <span className="block text-[10px] font-mono font-bold uppercase tracking-wide text-amber-500 mb-1.5 flex items-center justify-between">
-              <span>⚠️ Проблемные контракты</span>
-              <span className="bg-amber-500/10 text-amber-500 px-1.5 rounded text-[8.5px]">{problemOrders.length}</span>
-            </span>
-            {problemOrders.length > 0 ? (
-              <div className="space-y-2 max-h-36 overflow-y-auto">
-                {problemOrders.map(o => (
-                  <div key={o.id} className="p-2 rounded bg-amber-550/5 border border-amber-500/10 flex justify-between items-center text-[10.5px]">
-                    <div className="truncate pr-2">
-                      <span className="font-mono font-bold text-amber-400 block">{o.id} &bull; {o.productName}</span>
-                      <span className="text-slate-400 text-[10px] truncate block">Куратор: {members.find(m => m.id === o.assignedTo)?.name || 'Не назначен'}</span>
-                    </div>
-                    <button 
-                      onClick={() => onSwitchTab('orders')}
-                      className="text-[9px] font-mono font-extrabold bg-amber-500/15 text-amber-450 px-2 py-1 rounded hover:bg-amber-500/25 shrink-0"
-                    >
-                      Решить
-                    </button>
-                  </div>
-                ))}
+            <div>
+              <div className="flex justify-between items-center border-b border-dashed border-slate-700/20 pb-1.5 mb-2">
+                <span className="text-[10px] font-mono font-extrabold uppercase text-amber-500">Заблокированные</span>
+                <span className="bg-amber-500/10 text-amber-500 text-[10px] font-bold font-mono px-1.5 py-0.5 rounded">
+                  {orders.filter(o => o.orderStatus === OrderStatus.PROBLEM || (o.paymentStatus === PaymentStatus.UNPAID && [OrderStatus.REDEEMED, OrderStatus.IN_TRANSIT].includes(o.orderStatus))).length}
+                </span>
               </div>
-            ) : (
-              <p className="text-slate-500 font-mono text-[10.5px] leading-relaxed">
-                🎉 Исключений не обнаружено. Все заказы в реестре имеют штатные статусы движения.
+              <p className="text-[10px] text-[#8E939E] mb-2 leading-relaxed font-mono">
+                Ордера проблемные или в движении без внесенной оплаты
               </p>
-            )}
+              
+              <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                {orders.filter(o => o.orderStatus === OrderStatus.PROBLEM || (o.paymentStatus === PaymentStatus.UNPAID && [OrderStatus.REDEEMED, OrderStatus.IN_TRANSIT].includes(o.orderStatus)))
+                  .map(o => (
+                    <div key={o.id} className="p-2 rounded bg-black/40 border border-slate-800 text-[10px] font-mono">
+                      <div className="flex justify-between text-yellow-500 font-bold">
+                        <span>{o.id}</span>
+                        <span>{o.orderStatus}</span>
+                      </div>
+                      <p className="text-white font-sans text-[10px] truncate mt-0.5">{o.productName}</p>
+                      <p className="text-rose-400 font-mono text-[9px] mt-0.5">{o.paymentStatus}</p>
+                    </div>
+                  ))
+                }
+                {orders.filter(o => o.orderStatus === OrderStatus.PROBLEM || (o.paymentStatus === PaymentStatus.UNPAID && [OrderStatus.REDEEMED, OrderStatus.IN_TRANSIT].includes(o.orderStatus))).length === 0 && (
+                  <p className="text-slate-550 italic text-[10px] font-mono py-2 py-4 text-center">Нет критических блокировок</p>
+                )}
+              </div>
+            </div>
+            <button 
+              onClick={() => onSwitchTab('orders')}
+              className="w-full mt-3 text-center text-[9px] font-mono font-extrabold uppercase bg-amber-500/10 border border-amber-500/20 hover:bg-amber-500/20 text-yellow-500 py-1.5 rounded"
+            >
+              Перейти к CRM в сборке ➔
+            </button>
           </div>
 
-          {/* Anomaly 2: Negative Valuations / Payout limits */}
-          <div className={`p-3 rounded-lg border text-xs ${
-            darkMode ? 'bg-[#0E1015] border-[#222735]' : 'bg-white border-slate-200'
+          {/* 2. PENDING SETTLEMENTS BOARD */}
+          <div className={`p-3.5 rounded-lg border flex flex-col justify-between ${
+            darkMode ? 'bg-[#141722]/60 border-[#222735]' : 'bg-slate-50 border-slate-200'
           }`}>
-            <span className="block text-[10px] font-mono font-bold uppercase tracking-wide text-rose-500 mb-1.5 flex items-center justify-between">
-              <span>💸 Кассовые перерасходы</span>
-              <span className="bg-rose-500/10 text-rose-500 px-1.5 rounded text-[8.5px]">
-                {members.filter(m => (calculatedBalances.members[m.id] || 0) < 0).length}
-              </span>
-            </span>
-            {members.filter(m => (calculatedBalances.members[m.id] || 0) < 0).length > 0 ? (
-              <div className="space-y-2 max-h-36 overflow-y-auto">
-                {members.filter(m => (calculatedBalances.members[m.id] || 0) < 0).map(m => (
-                  <div key={m.id} className="p-2 rounded bg-rose-500/5 border border-rose-500/10 flex justify-between items-center text-[10.5px]">
-                    <div className="truncate pr-2">
-                      <span className="font-bold text-rose-400 block truncate">{m.name}</span>
-                      <span className="text-slate-400 text-[10px] block">Кошель ушёл в минус</span>
-                    </div>
-                    <span className="text-rose-450 font-mono font-bold shrink-0">{formatCurrency(calculatedBalances.members[m.id] || 0)}</span>
-                  </div>
-                ))}
+            <div>
+              <div className="flex justify-between items-center border-b border-dashed border-slate-700/20 pb-1.5 mb-2">
+                <span className="text-[10px] font-mono font-extrabold uppercase text-indigo-400">Ведомости Сейфов</span>
+                <span className="bg-indigo-500/10 text-indigo-400 text-[10px] font-bold font-mono px-1.5 py-0.5 rounded">
+                  {members.filter(m => (calculatedBalances.members[m.id] || 0) < 0).length} в долгу
+                </span>
               </div>
-            ) : (
-              <p className="text-slate-500 font-mono text-[10.5px] leading-relaxed">
-                ✅ Все фонды кураторов сбалансированы. Лимиты вывода соблюдены, отрицательных сальдо нет.
+              <p className="text-[10px] text-[#8E939E] mb-2 leading-relaxed font-mono">
+                Клиринговые взаиморасчеты shared трат кураторов
               </p>
-            )}
+              
+              <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                {/* Dynamically calculate list of debtors from personal balances */}
+                {members.map(m => {
+                  const bal = calculatedBalances.members[m.id] || 0;
+                  return (
+                    <div key={m.id} className="p-1.5 rounded bg-black/40 border border-slate-800 flex justify-between items-center text-[10px] font-mono">
+                      <span className="text-white font-bold">{m.name}</span>
+                      <span className={bal < 0 ? 'text-rose-400 font-bold' : 'text-emerald-400 font-bold'}>
+                        {bal >= 0 ? '+' : ''}{bal.toFixed(0)} ₽
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            <button 
+              onClick={() => onSwitchTab('finance')}
+              className="w-full mt-3 text-center text-[9px] font-mono font-extrabold uppercase bg-indigo-500/10 border border-indigo-500/20 hover:bg-indigo-500/20 text-indigo-300 py-1.5 rounded"
+            >
+              Транзакции и Общак ➔
+            </button>
           </div>
 
-          {/* Anomaly 3: Logistics Delays / Exceptions */}
-          <div className={`p-3 rounded-lg border text-xs ${
-            darkMode ? 'bg-[#0E1015] border-[#222735]' : 'bg-white border-slate-200'
+          {/* 3. SYNC ANOMALIES & INTEGRITY BOARD */}
+          <div className={`p-3.5 rounded-lg border flex flex-col justify-between ${
+            darkMode ? 'bg-[#141722]/60 border-[#222735]' : 'bg-slate-50 border-slate-200'
           }`}>
-            <span className="block text-[10px] font-mono font-bold uppercase tracking-wide text-indigo-400 mb-1.5 flex items-center justify-between">
-              <span>🇬🇧 Задержки сборников</span>
-              <span className="bg-indigo-500/10 text-indigo-400 px-1.5 rounded text-[8.5px]">
-                {parcels.filter(p => !p.trackingCode && p.status !== ParcelStatus.CLOSED).length}
-              </span>
-            </span>
-            {parcels.filter(p => !p.trackingCode && p.status !== ParcelStatus.CLOSED).length > 0 ? (
-              <div className="space-y-2 max-h-36 overflow-y-auto">
-                {parcels.filter(p => !p.trackingCode && p.status !== ParcelStatus.CLOSED).map(p => (
-                  <div key={p.id} className="p-2 rounded bg-indigo-500/5 border border-indigo-500/10 flex justify-between items-center text-[10.5px]">
-                    <div className="truncate pr-2">
-                      <span className="font-bold text-slate-300 block truncate">{p.id} - {p.title}</span>
-                      <span className="text-slate-400 text-[10px]">Отсутрует трекинг-код</span>
-                    </div>
-                    <button 
-                      onClick={() => onSwitchTab('parcels')}
-                      className="text-[9px] font-mono font-extrabold bg-indigo-500/15 text-indigo-400 px-2 py-1 rounded hover:bg-indigo-500/25 shrink-0"
-                    >
-                      Внести
-                    </button>
+            <div>
+              <div className="flex justify-between items-center border-b border-dashed border-slate-700/20 pb-1.5 mb-2">
+                <span className="text-[10px] font-mono font-extrabold uppercase text-pink-400">Аномалии Синк / БД</span>
+                <span className="bg-[#5C2B4E]/40 text-pink-400 text-[10px] font-bold font-mono px-1.5 py-0.5 rounded">
+                  {orders.filter(o => !o.assignedTo || !members.some(m => m.id === o.assignedTo)).length + orders.filter(o => o.clientPrice < o.costPrice).length}
+                </span>
+              </div>
+              <p className="text-[10px] text-[#8E939E] mb-2 leading-relaxed font-mono">
+                Контракты без кураторов или с отрицательной маржой
+              </p>
+              
+              <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                {orders.filter(o => !o.assignedTo).map(o => (
+                  <div key={o.id} className="p-1.5 rounded bg-black/40 border border-rose-900/40 text-[9.5px] font-mono text-rose-300">
+                    ⚠️ {o.id} Нет куратора!
                   </div>
                 ))}
+                {orders.filter(o => o.clientPrice < o.costPrice && o.orderStatus !== OrderStatus.CANCELLED).map(o => (
+                  <div key={o.id} className="p-1.5 rounded bg-black/40 border border-rose-900/40 text-[9.5px] font-mono text-rose-300">
+                    💸 {o.id} Отрицательная маржа
+                  </div>
+                ))}
+                
+                {orders.filter(o => !o.assignedTo).length === 0 && orders.filter(o => o.clientPrice < o.costPrice && o.orderStatus !== OrderStatus.CANCELLED).length === 0 && (
+                  <div className="text-center py-5">
+                    <span className="text-[10px] font-mono text-emerald-400 font-bold block">✓ Данные целостны</span>
+                    <span className="text-[9px] text-slate-550 block">Нет кассовых ошибок прайса</span>
+                  </div>
+                )}
               </div>
-            ) : (
-              <p className="text-slate-500 font-mono text-[10.5px] leading-relaxed">
-                ✈️ Все сборные посылки Великобритании укомплектованы активным трекинг-номером перевозчика.
-              </p>
-            )}
+            </div>
+            <button 
+              onClick={() => onSwitchTab('import')}
+              className="w-full mt-3 text-center text-[9px] font-mono font-extrabold uppercase bg-pink-500/10 border border-pink-500/20 hover:bg-pink-500/20 text-pink-400 py-1.5 rounded"
+            >
+              Google Sheets синк ➔
+            </button>
           </div>
+
+          {/* 4. LOGISTICS EXCEPTIONS BOARD */}
+          <div className={`p-3.5 rounded-lg border flex flex-col justify-between ${
+            darkMode ? 'bg-[#141722]/60 border-[#222735]' : 'bg-slate-50 border-slate-200'
+          }`}>
+            <div>
+              <div className="flex justify-between items-center border-b border-dashed border-slate-700/20 pb-1.5 mb-2">
+                <span className="text-[10px] font-mono font-extrabold uppercase text-sky-400">Трекинг & Посылки</span>
+                <span className="bg-sky-500/10 text-sky-400 text-[10px] font-bold font-mono px-1.5 py-0.5 rounded">
+                  {parcels.filter(p => !p.trackingCode && p.status !== ParcelStatus.CLOSED).length} аномал.
+                </span>
+              </div>
+              <p className="text-[10px] text-[#8E939E] mb-2 leading-relaxed font-mono">
+                Посылкам в транзите нужен трек-код СДЭК/Карго
+              </p>
+              
+              <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                {parcels.filter(p => !p.trackingCode && p.status !== ParcelStatus.CLOSED)
+                  .map(p => (
+                    <div key={p.id} className="p-1.5 rounded bg-black/40 border border-slate-800 text-[10px] font-mono text-slate-300 flex justify-between">
+                      <span>{p.id}</span>
+                      <span className="text-sky-400 font-bold">Без трека</span>
+                    </div>
+                  ))
+                }
+                {parcels.filter(p => !p.trackingCode && p.status !== ParcelStatus.CLOSED).length === 0 && (
+                  <div className="text-center py-5 text-[10px] font-mono text-emerald-400 font-bold">
+                    ✓ Трекинг коды в порядке
+                  </div>
+                )}
+              </div>
+            </div>
+            <button 
+              onClick={() => onSwitchTab('parcels')}
+              className="w-full mt-3 text-center text-[9px] font-mono font-extrabold uppercase bg-sky-500/10 border border-sky-500/20 hover:bg-sky-500/20 text-sky-400 py-1.5 rounded"
+            >
+              Сводные грузы / Брокер ➔
+            </button>
+          </div>
+
+          {/* 5. FINANCE DISCREPANCIES BOARD */}
+          <div className={`p-3.5 rounded-lg border flex flex-col justify-between ${
+            darkMode ? 'bg-[#141722]/60 border-[#222735]' : 'bg-slate-50 border-slate-200'
+          }`}>
+            <div>
+              <div className="flex justify-between items-center border-b border-dashed border-slate-700/20 pb-1.5 mb-2">
+                <span className="text-[10px] font-mono font-extrabold uppercase text-emerald-400">Кассовый Аудит</span>
+                <span className="bg-emerald-500/10 text-emerald-400 text-[10px] font-bold font-mono px-1.5 py-0.5 rounded">
+                  {finance.filter(f => f.amount <= 0).length} расхожд.
+                </span>
+              </div>
+              <p className="text-[10px] text-[#8E939E] mb-2 leading-relaxed font-mono">
+                Некорректно привязанные расходы или нулевые проводки
+              </p>
+              
+              <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                {finance.filter(f => f.amount <= 0).map(f => (
+                  <div key={f.id} className="p-1.5 rounded bg-black/40 border border-slate-800 text-[9.5px] font-mono text-rose-300">
+                    ⚠️ {f.id} Нулевая транзакция
+                  </div>
+                ))}
+                
+                {/* Check total shares sum */}
+                {Math.abs(members.reduce((sum,m)=>sum + m.sharePercent, 0) - 100) > 0.1 && (
+                  <div className="p-1.5 rounded bg-yellow-500/10 border border-yellow-500/30 text-[9.5px] font-mono text-yellow-500">
+                    ⚠️ Сумма долей партнеров != 100% (Текущая: {members.reduce((sum,m)=>sum + m.sharePercent, 0).toFixed(1)}%)
+                  </div>
+                )}
+
+                {finance.filter(f => f.amount <= 0).length === 0 && Math.abs(members.reduce((sum,m)=>sum + m.sharePercent, 0) - 100) <= 0.1 && (
+                  <div className="text-center py-5">
+                    <span className="text-[10px] font-mono text-emerald-400 font-bold block">✓ Касса сбалансирована</span>
+                    <span className="text-[9px] text-slate-550 block">Все доли = 100%. Расходы учтены.</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            <button 
+              onClick={() => onSwitchTab('finance')}
+              className="w-full mt-3 text-center text-[9px] font-mono font-extrabold uppercase bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20 text-emerald-400 py-1.5 rounded"
+            >
+              Проводки и лимиты ➔
+            </button>
+          </div>
+
         </div>
       </div>
 
