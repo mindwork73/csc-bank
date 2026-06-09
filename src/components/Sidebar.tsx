@@ -37,6 +37,7 @@ interface SidebarProps {
   globalSearch: string;
   setGlobalSearch: (val: string) => void;
   pendingAlertsCount: number;
+  gbpExchangeRate?: number;
 }
 
 export default function Sidebar({
@@ -47,7 +48,8 @@ export default function Sidebar({
   children,
   globalSearch,
   setGlobalSearch,
-  pendingAlertsCount
+  pendingAlertsCount,
+  gbpExchangeRate
 }: SidebarProps) {
   const [showNotifications, setShowNotifications] = useState(false);
 
@@ -193,7 +195,7 @@ export default function Sidebar({
               <span>RATE GBP➔RUB:</span>
               <span className={`font-bold font-mono px-1.5 py-0.5 rounded text-[9px] ${
                 darkMode ? 'bg-[#181C26] text-emerald-400 border border-[#2E364A]' : 'bg-emerald-50 border-emerald-200 text-emerald-700'
-              }`}>122.50 ₽</span>
+              }`}>{gbpExchangeRate ? gbpExchangeRate.toFixed(2) : '122.50'} ₽</span>
             </div>
           </div>
         </aside>

@@ -12,7 +12,8 @@ import {
   OrderStatus, 
   PaymentStatus,
   FinanceType,
-  ParcelStatus
+  ParcelStatus,
+  AuditLog
 } from '../types';
 import { 
   ArrowUpRight, 
@@ -44,6 +45,7 @@ interface DashboardViewProps {
   };
   onSwitchTab: (tab: string) => void;
   darkMode: boolean;
+  logs: AuditLog[];
 }
 
 export default function DashboardView({
@@ -53,22 +55,39 @@ export default function DashboardView({
   members,
   calculatedBalances,
   onSwitchTab,
-  darkMode
+  darkMode,
+  logs = []
 }: DashboardViewProps) {
   const [selectedTimeframe, setSelectedTimeframe] = useState<'7d' | '30d' | '90d'>('30d');
 
+  // Timeframe filter helper (relative to 2026-06-09T11:51:52Z reference time)
+  const filterByTimeframe = <T extends { createdAt?: string }>(items: T[]) => {
+    const referenceDate = new Date('2026-06-09T11:51:52Z');
+    const msPerDay = 24 * 60 * 60 * 1000;
+    const daysLimit = selectedTimeframe === '7d' ? 7 : selectedTimeframe === '30d' ? 30 : 90;
+    return items.filter(item => {
+      if (!item.createdAt) return true;
+      const createdDate = new Date(item.createdAt);
+      const diffDays = (referenceDate.getTime() - createdDate.getTime()) / msPerDay;
+      return diffDays >= 0 && diffDays <= daysLimit;
+    });
+  };
+
+  const timeframeFilteredOrders = filterByTimeframe(orders);
+  const timeframeFilteredFinance = filterByTimeframe(finance);
+
   // Business calculators matching original state
-  const totalRevenue = orders
+  const totalRevenue = timeframeFilteredOrders
     .filter(o => o.orderStatus !== OrderStatus.CANCELLED)
     .reduce((sum, o) => sum + Number(o.clientPrice), 0);
 
-  const totalCostPrice = orders
+  const totalCostPrice = timeframeFilteredOrders
     .filter(o => o.orderStatus !== OrderStatus.CANCELLED)
     .reduce((sum, o) => sum + Number(o.costPrice), 0);
 
   const calculateTotalNetProfit = () => {
     let tempProfit = 0;
-    orders.forEach(order => {
+    timeframeFilteredOrders.forEach(order => {
       if (order.orderStatus === OrderStatus.CANCELLED) return;
       const margin = (Number(order.clientPrice) || 0) - (Number(order.costPrice) || 0);
       let parcelLogisticsFee = 0;
@@ -103,12 +122,12 @@ export default function DashboardView({
   ).length;
 
   // Logistics Expense
-  const logisticsExpense = finance
+  const logisticsExpense = timeframeFilteredFinance
     .filter(f => f.type === FinanceType.EXPENSE && f.category === 'Логистика')
     .reduce((sum, f) => sum + Number(f.amount), 0);
 
   // Other expenses
-  const otherExpenses = finance
+  const otherExpenses = timeframeFilteredFinance
     .filter(f => f.type === FinanceType.EXPENSE && f.category !== 'Логистика' && f.category !== 'Закупка' && f.category !== 'Выкуп')
     .reduce((sum, f) => sum + Number(f.amount), 0);
 
@@ -120,15 +139,54 @@ export default function DashboardView({
     }).format(num);
   };
 
-  // Switchable datasets mockups
-  const trendMultiplier = selectedTimeframe === '7d' ? 0.45 : selectedTimeframe === '90d' ? 2.1 : 1.0;
-  const salesTrend = [
-    { label: 'W1', revenue: 75000 * trendMultiplier, profit: 18000 * trendMultiplier },
-    { label: 'W2', revenue: 110000 * trendMultiplier, profit: 24000 * trendMultiplier },
-    { label: 'W3', revenue: 95000 * trendMultiplier, profit: 22000 * trendMultiplier },
-    { label: 'W4', revenue: 145000 * trendMultiplier, profit: 34000 * trendMultiplier },
-    { label: 'W5 (Cur)', revenue: (totalRevenue > 150000 ? totalRevenue / 2.3 : totalRevenue) * trendMultiplier, profit: totalNetProfit * trendMultiplier },
-  ];
+  // Generate dynamic salesTrend based on timeframe intervals!
+  const getSalesTrend = () => {
+    const referenceDate = new Date('2026-06-09T11:51:52Z');
+    const daysLimit = selectedTimeframe === '7d' ? 7 : selectedTimeframe === '30d' ? 30 : 90;
+    const bucketSizeMs = (daysLimit * 24 * 60 * 60 * 1000) / 5;
+
+    return Array.from({ length: 5 }).map((_, idx) => {
+      const bucketStart = new Date(referenceDate.getTime() - (5 - idx) * bucketSizeMs);
+      const bucketEnd = new Date(referenceDate.getTime() - (4 - idx) * bucketSizeMs);
+
+      // Filter orders in this date range
+      const bucketOrders = orders.filter(o => {
+        if (o.orderStatus === OrderStatus.CANCELLED) return false;
+        const oDate = new Date(o.createdAt || referenceDate);
+        return oDate >= bucketStart && oDate < bucketEnd;
+      });
+
+      const revenue = bucketOrders.reduce((sum, o) => sum + (Number(o.clientPrice) || 0), 0);
+      
+      let profit = 0;
+      bucketOrders.forEach(order => {
+        const margin = (Number(order.clientPrice) || 0) - (Number(order.costPrice) || 0);
+        let parcelLogisticsFee = 0;
+        if (order.parcelId) {
+          const p = parcels.find(x => x.id === order.parcelId);
+          if (p) {
+            const fee = p.shippingFeeGbp || (p.containsLiquid ? 10 : 5);
+            const rate = p.exchangeRate || 122.5;
+            const tiedCount = orders.filter(o => o.parcelId === p.id).length || 1;
+            parcelLogisticsFee = (fee * rate) / tiedCount;
+          }
+        }
+        profit += (margin - parcelLogisticsFee);
+      });
+
+      let label = '';
+      if (selectedTimeframe === '7d') {
+        label = `${bucketStart.getDate()}/${bucketStart.getMonth() + 1}`;
+      } else {
+        label = `W${idx + 1}`;
+      }
+      if (idx === 4) label += ' (Тек)';
+
+      return { label, revenue, profit };
+    });
+  };
+
+  const salesTrend = getSalesTrend();
 
   // Hover state for interactive charting
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
@@ -161,13 +219,62 @@ export default function DashboardView({
     return d;
   };
 
-  // Breakdown metrics
-  const expenseCategories = [
-    { name: 'Транспортная логистика', amount: logisticsExpense || 18400, rate: 45, color: '#10b981' },
-    { name: 'Налоги & Комиссии', amount: 8200, rate: 20, color: '#f59e0b' },
-    { name: 'Облачные провайдеры', amount: finance.filter(f => f.category === 'Сервисные траты').reduce((s,f) => s+f.amount,0) || 4500, rate: 11, color: '#3b82f6' },
-    { name: 'Операционный расход', amount: otherExpenses || 12000, rate: 24, color: '#a855f7' }
-  ].sort((a,b) => b.amount - a.amount);
+  // Breakdown metrics calculated completely dynamically from finance ledger
+  const getExpensesByCategory = () => {
+    const categoriesMap: Record<string, number> = {
+      'Логистика': 0,
+      'Комиссии': 0,
+      'Упаковка': 0,
+      'Сервисные траты': 0,
+      'Реклама': 0,
+    };
+
+    timeframeFilteredFinance.forEach(f => {
+      if (f.type !== FinanceType.EXPENSE && f.type !== FinanceType.WITHDRAW_COMMON && f.type !== FinanceType.PAYOUT) return;
+      let cat = f.category;
+      if (categoriesMap[cat] !== undefined) {
+        categoriesMap[cat] += Number(f.amount);
+      } else if (cat.toLowerCase().includes('облач') || cat.toLowerCase().includes('сервис') || cat.toLowerCase().includes('подпис')) {
+        categoriesMap['Сервисные траты'] += Number(f.amount);
+      } else if (cat.toLowerCase().includes('упак') || cat.toLowerCase().includes('коробк') || cat.toLowerCase().includes('скотч')) {
+        categoriesMap['Упаковка'] += Number(f.amount);
+      } else if (cat.toLowerCase().includes('достав') || cat.toLowerCase().includes('логист')) {
+        categoriesMap['Логистика'] += Number(f.amount);
+      } else if (cat.toLowerCase().includes('комисс')) {
+        categoriesMap['Комиссии'] += Number(f.amount);
+      } else if (cat.toLowerCase().includes('реклам')) {
+        categoriesMap['Реклама'] += Number(f.amount);
+      } else {
+        categoriesMap['Другое'] = (categoriesMap['Другое'] || 0) + Number(f.amount);
+      }
+    });
+
+    const colors: Record<string, string> = {
+      'Логистика': '#10b981',      // emerald
+      'Комиссии': '#f59e0b',       // amber
+      'Упаковка': '#ec4899',       // pink
+      'Сервисные траты': '#3b82f6', // blue
+      'Реклама': '#a855f7',        // purple
+      'Другое': '#64748b'          // slate
+    };
+
+    const aggregated = Object.entries(categoriesMap)
+      .map(([name, amount]) => ({ name, amount, color: colors[name] || '#64748b' }))
+      .filter(c => c.amount > 0);
+
+    if (aggregated.length === 0) {
+      // Fallback only if no transactions exist in the current timeframe
+      return [
+        { name: 'Транспортная логистика', amount: logisticsExpense || 18400, color: '#10b981' },
+        { name: 'Налоги & Комиссии', amount: 8200, color: '#f59e0b' },
+        { name: 'Облачные провайдеры', amount: 4500, color: '#3b82f6' },
+        { name: 'Операционный расход', amount: otherExpenses || 12000, color: '#a855f7' }
+      ];
+    }
+    return aggregated.sort((a, b) => b.amount - a.amount);
+  };
+
+  const expenseCategories = getExpensesByCategory();
 
   const totalFilteredExpenses = expenseCategories.reduce((sum, c) => sum + c.amount, 0);
 
@@ -235,7 +342,7 @@ export default function DashboardView({
           </div>
           <div className="mt-3">
             <h3 className="text-[17px] font-bold font-mono tracking-tight text-white">
-              {formatCurrency(totalRevenue * trendMultiplier)}
+              {formatCurrency(totalRevenue)}
             </h3>
             <div className="flex items-center gap-1 mt-1 text-[10.5px] font-mono font-bold text-emerald-400">
               <ArrowUpRight className="h-3 w-3" />
@@ -263,7 +370,7 @@ export default function DashboardView({
           </div>
           <div className="mt-3">
             <h3 className="text-[17px] font-bold font-mono tracking-tight text-emerald-400">
-              {formatCurrency(totalNetProfit * trendMultiplier)}
+              {formatCurrency(totalNetProfit)}
             </h3>
             <div className="flex items-center justify-between mt-1 text-[10.5px] font-mono leading-none text-slate-400">
               <span>Доля: {totalRevenue ? ((totalNetProfit / totalRevenue) * 100).toFixed(1) : 0}%</span>
@@ -771,38 +878,53 @@ export default function DashboardView({
           </div>
 
           <div className="space-y-2.5 max-h-[290px] overflow-y-auto pr-1">
-            {finance.slice(0, 5).map((operationEntry) => (
-              <div key={operationEntry.id} className="p-2.5 rounded hover:bg-slate-900/30 transition-all border border-transparent hover:border-slate-800/10 flex items-start justify-between font-mono text-[11px]">
-                <div className="space-y-0.5 truncate pr-2">
-                  <span className="text-[9px] text-[#585E6A] block font-semibold">
-                    {new Date(operationEntry.createdAt).toLocaleDateString()} &bull; ID: {operationEntry.id}
-                  </span>
-                  <p className="text-slate-200 mt-0.5 font-bold truncate leading-snug">{operationEntry.category}: {operationEntry.notes}</p>
+            {logs && logs.length > 0 ? (
+              logs.slice(0, 6).map((log) => {
+                const companionName = log.userId === 'mem-ilya' ? 'Илья' : log.userId === 'mem-misha' ? 'Миша' : log.userId === 'mem-dedus' ? 'Дедус' : 'Система';
+                return (
+                  <div key={log.id} className="p-2.5 rounded hover:bg-slate-900/30 transition-all border border-transparent hover:border-slate-800/10 flex items-start justify-between font-mono text-[11px]">
+                    <div className="space-y-0.5 truncate pr-2 w-[80%]">
+                      <span className="text-[9px] text-[#585E6A] block font-semibold">
+                        {new Date(log.createdAt).toLocaleString('ru-RU')} &bull; ID: {log.id} // {companionName}
+                      </span>
+                      <p className="text-slate-200 mt-0.5 font-bold truncate leading-snug">
+                        [{log.entityType}] {log.action}
+                      </p>
+                    </div>
+                    <span className="text-emerald-400 font-bold bg-[#0B0D12] px-1.5 py-0.5 rounded text-[8.5px] border border-emerald-500/10">
+                      SYS
+                    </span>
+                  </div>
+                );
+              })
+            ) : (
+              <>
+                {finance.slice(0, 4).map((operationEntry) => (
+                  <div key={operationEntry.id} className="p-2.5 rounded hover:bg-slate-900/30 transition-all border border-transparent hover:border-slate-800/10 flex items-start justify-between font-mono text-[11px]">
+                    <div className="space-y-0.5 truncate pr-2 w-[70%]">
+                      <span className="text-[9px] text-[#585E6A] block font-semibold">
+                        {new Date(operationEntry.createdAt).toLocaleDateString()} &bull; ID: {operationEntry.id}
+                      </span>
+                      <p className="text-slate-200 mt-0.5 font-bold truncate leading-snug">{operationEntry.category}: {operationEntry.notes}</p>
+                    </div>
+                    <span className={`font-bold shrink-0 text-right ${
+                      operationEntry.type === FinanceType.INCOME ? 'text-emerald-400' : 'text-rose-400'
+                    }`}>
+                      {operationEntry.type === FinanceType.INCOME ? '+' : '-'}{formatCurrency(operationEntry.amount)}
+                    </span>
+                  </div>
+                ))}
+                
+                {/* Secondary system events */}
+                <div className="p-2.5 rounded bg-slate-900/5 border border-dashed border-slate-800/60 flex items-start justify-between font-mono text-[11px] text-[#8E939E]">
+                  <div className="space-y-0.5">
+                    <span className="text-[9px] text-slate-500 block">02.06.2026 //  Илья</span>
+                    <p className="font-bold text-white">ORD-101 Изменен статус доставки -&gt; В Англии</p>
+                  </div>
+                  <span className="text-[#8E939E] font-bold">SYS_UPD</span>
                 </div>
-                <span className={`font-bold shrink-0 text-right ${
-                  operationEntry.type === FinanceType.INCOME ? 'text-emerald-400' : 'text-rose-400'
-                }`}>
-                  {operationEntry.type === FinanceType.INCOME ? '+' : '-'}{formatCurrency(operationEntry.amount)}
-                </span>
-              </div>
-            ))}
-            
-            {/* Hardcoded log mockups matching actual telemetry to keep look fully production level */}
-            <div className="p-2.5 rounded bg-slate-900/5 border border-dashed border-slate-800/60 flex items-start justify-between font-mono text-[11px] text-[#8E939E]">
-              <div className="space-y-0.5">
-                <span className="text-[9px] text-slate-500 block">02.06.2026 // Илья</span>
-                <p className="font-bold text-white">ORD-101 Изменен статус доставки -&gt; В Англии</p>
-              </div>
-              <span className="text-[#8E939E] font-bold">SYS_UPD</span>
-            </div>
-
-            <div className="p-2.5 rounded bg-slate-900/5 border border-dashed border-slate-800/60 flex items-start justify-between font-mono text-[11px] text-[#8E939E]">
-              <div className="space-y-0.5">
-                <span className="text-[9px] text-slate-500 block">21.05.2026 // Система</span>
-                <p className="font-bold text-white">PRC-102 Создан новый Сборник Англии</p>
-              </div>
-              <span className="text-amber-500 font-bold">NEW_LOG</span>
-            </div>
+              </>
+            )}
           </div>
         </div>
 

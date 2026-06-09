@@ -21,7 +21,8 @@ import {
   PaymentStatus,
   ShippingStatus,
   BrokerItem,
-  BrokerShipment
+  BrokerShipment,
+  ImportSession
 } from './types';
 
 // Page imports
@@ -329,6 +330,13 @@ export default function App() {
     addAuditLog(`Переприняты доли партнеров в P&L реестре`, 'TeamMember', 'TEAM');
   };
 
+  const handleAddImportSession = (newSession: ImportSession) => {
+    setState(prev => ({
+      ...prev,
+      importHistory: [newSession, ...(prev.importHistory || [])]
+    }));
+  };
+
   // Tab routing selection
   const renderTabContent = () => {
     switch (currentTab) {
@@ -342,6 +350,7 @@ export default function App() {
             calculatedBalances={calculatedBalances}
             onSwitchTab={setCurrentTab}
             darkMode={darkMode}
+            logs={state.logs || []}
           />
         );
       case 'orders':
@@ -413,6 +422,8 @@ export default function App() {
             onClearFinance={handleClearFinance}
             onAddLog={(action, type) => addAuditLog(action, type, 'IMPORT_SESSION')}
             darkMode={darkMode}
+            importHistory={state.importHistory || []}
+            onAddImportSession={handleAddImportSession}
           />
         );
       case 'settings':
@@ -440,6 +451,7 @@ export default function App() {
       globalSearch={globalSearch}
       setGlobalSearch={setGlobalSearch}
       pendingAlertsCount={totalPendingAlerts}
+      gbpExchangeRate={state.settings.gbpExchangeRate}
     >
       {renderTabContent()}
     </Sidebar>
