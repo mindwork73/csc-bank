@@ -57,6 +57,7 @@ interface ParcelsViewProps {
   onAddBrokerShipment: (shipment: Omit<BrokerShipment, 'id' | 'createdAt'>) => void;
   onUpdateBrokerShipment: (shipment: BrokerShipment) => void;
   onDeleteBrokerShipment: (id: string) => void;
+  currentRole?: 'root' | 'admin' | 'finance' | 'operations' | 'logistics' | 'readonly';
 }
 
 export default function ParcelsView({
@@ -76,7 +77,8 @@ export default function ParcelsView({
   onDeleteBrokerItem,
   onAddBrokerShipment,
   onUpdateBrokerShipment,
-  onDeleteBrokerShipment
+  onDeleteBrokerShipment,
+  currentRole = 'root'
 }: ParcelsViewProps) {
   // Navigation tabs of Logistics panel
   const [activeTab, setActiveTab] = useState<'warehouse' | 'shipments' | 'legacy-boxes'>('warehouse');

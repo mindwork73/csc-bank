@@ -46,6 +46,7 @@ interface DashboardViewProps {
   onSwitchTab: (tab: string) => void;
   darkMode: boolean;
   logs: AuditLog[];
+  currentRole?: 'root' | 'admin' | 'finance' | 'operations' | 'logistics' | 'readonly';
 }
 
 export default function DashboardView({
@@ -56,7 +57,8 @@ export default function DashboardView({
   calculatedBalances,
   onSwitchTab,
   darkMode,
-  logs = []
+  logs = [],
+  currentRole = 'root'
 }: DashboardViewProps) {
   const [selectedTimeframe, setSelectedTimeframe] = useState<'7d' | '30d' | '90d'>('30d');
 

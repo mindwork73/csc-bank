@@ -25,7 +25,9 @@ import {
   Globe,
   ChevronDown,
   Sparkles,
-  Command
+  Command,
+  History,
+  ClipboardList
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -38,6 +40,8 @@ interface SidebarProps {
   setGlobalSearch: (val: string) => void;
   pendingAlertsCount: number;
   gbpExchangeRate?: number;
+  currentRole: 'root' | 'admin' | 'finance' | 'operations' | 'logistics' | 'readonly';
+  onChangeRole: (role: 'root' | 'admin' | 'finance' | 'operations' | 'logistics' | 'readonly') => void;
 }
 
 export default function Sidebar({
@@ -49,7 +53,9 @@ export default function Sidebar({
   globalSearch,
   setGlobalSearch,
   pendingAlertsCount,
-  gbpExchangeRate
+  gbpExchangeRate,
+  currentRole,
+  onChangeRole
 }: SidebarProps) {
   const [showNotifications, setShowNotifications] = useState(false);
 
@@ -68,6 +74,13 @@ export default function Sidebar({
       items: [
         { id: 'finance', label: 'Бухучет / Ledger', icon: Wallet },
         { id: 'analytics', label: 'Аналитика маржи', icon: PieChart },
+      ]
+    },
+    {
+      title: 'Контроль и Аудит',
+      items: [
+        { id: 'journal', label: 'Sync Журнал', icon: History },
+        { id: 'audit', label: 'Аудит систем', icon: ClipboardList },
       ]
     },
     {
@@ -321,16 +334,29 @@ export default function Sidebar({
                 {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4 text-slate-550" />}
               </button>
 
-              {/* Mini User Profile Badge - Elevated details */}
+              {/* Mini User Profile Badge - Elevated details with interactive role-model */}
               <div className={`flex items-center space-x-2.5 pl-3 border-l ${
                 darkMode ? 'border-[#1D212A]' : 'border-[#E2E8F0]'
               }`}>
-                <div className={`h-8 w-8 rounded-lg font-mono font-bold text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center uppercase shadow-sm`}>
-                  AD
+                <div className="h-8 w-8 rounded-lg font-mono font-bold text-xs text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center uppercase shadow-sm">
+                  {currentRole.slice(0, 2).toUpperCase()}
                 </div>
-                <div className="hidden lg:block text-left leading-none">
-                  <p className={`text-xs font-bold ${darkMode ? 'text-slate-200' : 'text-slate-800'}`}>Админ CSC</p>
-                  <span className="text-[9px] font-mono font-semibold text-slate-500 block uppercase">Root Access</span>
+                <div className="hidden lg:block text-left">
+                  <span className="text-[8.5px] font-mono font-semibold text-slate-500 block uppercase leading-none mb-0.5">Доступ в системе:</span>
+                  <select
+                    value={currentRole}
+                    onChange={(e) => onChangeRole(e.target.value as any)}
+                    className={`block w-full bg-transparent border-0 p-0 text-xs font-bold font-mono focus:ring-0 cursor-pointer focus:outline-none ${
+                      darkMode ? 'text-white' : 'text-slate-800'
+                    }`}
+                  >
+                    <option className="bg-[#0E1015] text-white" value="root">⚙️ ROOT SYSTEM</option>
+                    <option className="bg-[#0E1015] text-white" value="admin">💼 ADMIN PORTAL</option>
+                    <option className="bg-[#0E1015] text-white" value="finance">📊 FINANCE LEDGER</option>
+                    <option className="bg-[#0E1015] text-white" value="operations">🚚 OPERATIONS CRM</option>
+                    <option className="bg-[#0E1015] text-white" value="logistics">🇬🇧 UK WAREHOUSE</option>
+                    <option className="bg-[#0E1015] text-white" value="readonly">👁️ READONLY AUDIT</option>
+                  </select>
                 </div>
               </div>
             </div>

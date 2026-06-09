@@ -34,6 +34,8 @@ import FinanceView from './components/FinanceView';
 import AnalyticsView from './components/AnalyticsView';
 import ImportView from './components/ImportView';
 import SettingsView from './components/SettingsView';
+import JournalView from './components/JournalView';
+import AuditView from './components/AuditView';
 
 export default function App() {
   // Primary persistent state
@@ -41,6 +43,7 @@ export default function App() {
   const [currentTab, setCurrentTab] = useState<string>('dashboard');
   const [darkMode, setDarkMode] = useState<boolean>(true);
   const [globalSearch, setGlobalSearch] = useState<string>('');
+  const [currentRole, setCurrentRole] = useState<'root' | 'admin' | 'finance' | 'operations' | 'logistics' | 'readonly'>('root');
 
   // Persist state updates on change
   useEffect(() => {
@@ -351,6 +354,7 @@ export default function App() {
             onSwitchTab={setCurrentTab}
             darkMode={darkMode}
             logs={state.logs || []}
+            currentRole={currentRole}
           />
         );
       case 'orders':
@@ -364,6 +368,7 @@ export default function App() {
             onDeleteOrder={handleDeleteOrder}
             globalSearch={globalSearch}
             darkMode={darkMode}
+            currentRole={currentRole}
           />
         );
       case 'parcels':
@@ -385,6 +390,7 @@ export default function App() {
             onAddBrokerShipment={handleAddBrokerShipment}
             onUpdateBrokerShipment={handleUpdateBrokerShipment}
             onDeleteBrokerShipment={handleDeleteBrokerShipment}
+            currentRole={currentRole}
           />
         );
       case 'finance':
@@ -401,6 +407,7 @@ export default function App() {
             profitAllocationType={state.profitAllocationType}
             onUpdateProfitAllocation={(type) => setState(prev => ({ ...prev, profitAllocationType: type }))}
             darkMode={darkMode}
+            currentRole={currentRole}
           />
         );
       case 'analytics':
@@ -424,6 +431,26 @@ export default function App() {
             darkMode={darkMode}
             importHistory={state.importHistory || []}
             onAddImportSession={handleAddImportSession}
+            currentRole={currentRole}
+          />
+        );
+      case 'journal':
+        return (
+          <JournalView
+            importHistory={state.importHistory || []}
+            onAddLog={(action, type) => addAuditLog(action, type ?? 'Order', 'IMPORT_SESSION')}
+            darkMode={darkMode}
+          />
+        );
+      case 'audit':
+        return (
+          <AuditView
+            logs={state.logs || []}
+            darkMode={darkMode}
+            onClearLogs={() => {
+              setState(prev => ({ ...prev, logs: [] }));
+              addAuditLog('Журнал аудита очищен пользователем', 'TeamMember', 'SYSTEM');
+            }}
           />
         );
       case 'settings':
@@ -452,6 +479,8 @@ export default function App() {
       setGlobalSearch={setGlobalSearch}
       pendingAlertsCount={totalPendingAlerts}
       gbpExchangeRate={state.settings.gbpExchangeRate}
+      currentRole={currentRole}
+      onChangeRole={setCurrentRole}
     >
       {renderTabContent()}
     </Sidebar>

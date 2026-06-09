@@ -49,6 +49,7 @@ interface FinanceViewProps {
   profitAllocationType: 'common' | 'manager';
   onUpdateProfitAllocation: (type: 'common' | 'manager') => void;
   darkMode?: boolean;
+  currentRole?: 'root' | 'admin' | 'finance' | 'operations' | 'logistics' | 'readonly';
 }
 
 export default function FinanceView({
@@ -62,7 +63,8 @@ export default function FinanceView({
   onClearFinance,
   profitAllocationType,
   onUpdateProfitAllocation,
-  darkMode = true
+  darkMode = true,
+  currentRole = 'root'
 }: FinanceViewProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('ALL');
@@ -253,17 +255,24 @@ export default function FinanceView({
           </p>
         </div>
 
-        <button
-          onClick={() => setIsAddModalOpen(true)}
-          className={`flex items-center space-x-2 font-mono font-bold text-xs px-4 py-2.5 rounded-lg shadow-lg transition-all ${
-            darkMode 
-              ? 'bg-indigo-650 hover:bg-indigo-550 bg-indigo-600 text-white' 
-              : 'bg-indigo-700 hover:bg-indigo-600 text-white'
-          }`}
-        >
-          <Plus className="h-4 w-4" />
-          <span>Записать Транзакцию</span>
-        </button>
+        {currentRole === 'root' || currentRole === 'admin' || currentRole === 'finance' ? (
+          <button
+            onClick={() => setIsAddModalOpen(true)}
+            className={`flex items-center space-x-2 font-mono font-bold text-xs px-4 py-2.5 rounded-lg shadow-lg transition-all ${
+              darkMode 
+                ? 'bg-indigo-650 hover:bg-indigo-550 bg-indigo-600 text-white' 
+                : 'bg-indigo-700 hover:bg-indigo-600 text-white'
+            }`}
+          >
+            <Plus className="h-4 w-4" />
+            <span>Записать Транзакцию</span>
+          </button>
+        ) : (
+          <div className="flex items-center space-x-2 bg-slate-800/15 border border-slate-700/40 px-3 py-2.5 rounded-lg text-slate-400 font-mono text-[10px] uppercase font-bold">
+            <span className="h-1.5 w-1.5 rounded-full bg-rose-450 bg-rose-500 animate-pulse"></span>
+            <span>Панель Кассы Заблокирована ({currentRole})</span>
+          </div>
+        )}
       </div>
 
       {/* PROFIT DISTRIBUTION STYLE TABS TARGET */}
@@ -285,24 +294,32 @@ export default function FinanceView({
         }`}>
           <button 
             type="button"
-            onClick={() => onUpdateProfitAllocation('manager')}
+            onClick={() => {
+              if (currentRole === 'root' || currentRole === 'admin' || currentRole === 'finance') {
+                onUpdateProfitAllocation('manager');
+              }
+            }}
             className={`px-3 py-2 rounded-md font-bold transition-all ${
               profitAllocationType === 'manager' 
                 ? darkMode ? 'bg-[#1C1F2E] text-white border border-[#2E364A] shadow-sm' : 'bg-indigo-600 text-white'
-                : 'text-slate-500 hover:text-slate-350'
-            }`}
+                : 'text-slate-550 hover:text-indigo-400'
+            } ${(currentRole === 'root' || currentRole === 'admin' || currentRole === 'finance') ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
           >
             Сейф Куратора (Manager-driven)
           </button>
           
           <button 
             type="button"
-            onClick={() => onUpdateProfitAllocation('common')}
+            onClick={() => {
+              if (currentRole === 'root' || currentRole === 'admin' || currentRole === 'finance') {
+                onUpdateProfitAllocation('common');
+              }
+            }}
             className={`px-3 py-2 rounded-md font-bold transition-all ${
               profitAllocationType === 'common' 
                 ? darkMode ? 'bg-[#1C1F2E] text-white border border-[#2E364A] shadow-sm' : 'bg-indigo-600 text-white'
-                : 'text-slate-500 hover:text-slate-350'
-            }`}
+                : 'text-slate-550 hover:text-indigo-400'
+            } ${(currentRole === 'root' || currentRole === 'admin' || currentRole === 'finance') ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
           >
             Общий Фонд (Fund-driven)
           </button>

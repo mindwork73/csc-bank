@@ -47,6 +47,7 @@ interface OrdersViewProps {
   onDeleteOrder: (id: string) => void;
   globalSearch: string;
   darkMode?: boolean;
+  currentRole?: 'root' | 'admin' | 'finance' | 'operations' | 'logistics' | 'readonly';
 }
 
 export default function OrdersView({
@@ -57,7 +58,8 @@ export default function OrdersView({
   onUpdateOrder,
   onDeleteOrder,
   globalSearch,
-  darkMode = true
+  darkMode = true,
+  currentRole = 'root'
 }: OrdersViewProps) {
   // Local Filters state
   const [searchTerm, setSearchTerm] = useState('');
@@ -379,17 +381,24 @@ export default function OrdersView({
           </p>
         </div>
 
-        <button
-          onClick={() => setIsAddModalOpen(true)}
-          className={`flex items-center space-x-2 font-mono font-bold text-xs px-4 py-2.5 rounded-lg shadow-lg transition-all ${
-            darkMode 
-              ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-700/10' 
-              : 'bg-emerald-700 hover:bg-emerald-600 text-white shadow-emerald-800/10'
-          }`}
-        >
-          <Plus className="h-4 w-4" />
-          <span>Добавить Заказ в CRM</span>
-        </button>
+        {currentRole === 'readonly' || currentRole === 'logistics' ? (
+          <div className="flex items-center space-x-2 bg-slate-800/25 border border-slate-700/50 px-3 py-2.5 rounded-lg text-slate-400 font-mono text-[10px] uppercase font-bold">
+            <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+            <span>Режим редактирования ограничен ({currentRole})</span>
+          </div>
+        ) : (
+          <button
+            onClick={() => setIsAddModalOpen(true)}
+            className={`flex items-center space-x-2 font-mono font-bold text-xs px-4 py-2.5 rounded-lg shadow-lg transition-all ${
+              darkMode 
+                ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-700/10' 
+                : 'bg-emerald-700 hover:bg-emerald-600 text-white shadow-emerald-800/10'
+            }`}
+          >
+            <Plus className="h-4 w-4" />
+            <span>Добавить Заказ в CRM</span>
+          </button>
+        )}
       </div>
 
       {/* STATISTICAL LEDGER RIBBON */}

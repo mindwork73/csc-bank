@@ -47,6 +47,7 @@ interface ImportViewProps {
   darkMode?: boolean;
   importHistory: ImportSession[];
   onAddImportSession: (session: ImportSession) => void;
+  currentRole?: 'root' | 'admin' | 'finance' | 'operations' | 'logistics' | 'readonly';
 }
 
 // ==========================================
@@ -156,7 +157,8 @@ export default function ImportView({
   onAddLog,
   darkMode = true,
   importHistory,
-  onAddImportSession
+  onAddImportSession,
+  currentRole = 'root'
 }: ImportViewProps) {
   // Configured URLs
   const [sheet1Url, setSheet1Url] = useState('https://docs.google.com/spreadsheets/d/1YJ-MZAwcRyaR4aragBIqFBQwrH4g4yoXpWtwK_NHSzs/edit?usp=sharing');
