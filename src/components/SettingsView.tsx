@@ -28,6 +28,7 @@ interface SettingsViewProps {
   onUpdateMembers: (members: TeamMember[]) => void;
   auditLogs: AuditLog[];
   darkMode?: boolean;
+  onShowToast?: (message: string, type?: 'success' | 'info' | 'warning' | 'error') => void;
 }
 
 export default function SettingsView({
@@ -36,7 +37,8 @@ export default function SettingsView({
   onUpdateSettings,
   onUpdateMembers,
   auditLogs,
-  darkMode = true
+  darkMode = true,
+  onShowToast
 }: SettingsViewProps) {
   const [exchangeRate, setExchangeRate] = useState(settings.gbpExchangeRate);
   const [regularGbp, setRegularGbp] = useState(settings.defaultFeeRegularGbp);
@@ -59,7 +61,11 @@ export default function SettingsView({
       defaultFeeRegularGbp: Number(regularGbp) || 5,
       defaultFeeLiquidGbp: Number(liquidGbp) || 10
     });
-    alert('Системные курсы успешно зафиксированы.');
+    if (onShowToast) {
+      onShowToast('Системные курсы успешно зафиксированы.', 'success');
+    } else {
+      alert('Системные курсы успешно зафиксированы.');
+    }
   };
 
   const handleUpdateShare = (id: string, field: 'share' | 'active', value: any) => {
@@ -75,8 +81,12 @@ export default function SettingsView({
     // Validate total sum is 100%
     const total = partnerShares.reduce((s, p) => s + (p.active ? Number(p.share) : 0), 0);
     if (Math.abs(total - 100) > 0.1) {
-      if (!confirm(`Внимание: Сумма долей активных участников составляет ${total}%, а не 100%. Это может нарушить автоматический split расходов. Сохранить все равно?`)) {
-        return;
+      if (onShowToast) {
+        onShowToast(`Внимание: Сумма долей активных участников составляет ${total}%, а не 100%. Это может нарушить автоматический split расходов.`, 'warning');
+      } else {
+        if (!confirm(`Внимание: Сумма долей активных участников составляет ${total}%, а не 100%. Это может нарушить автоматический split расходов. Сохранить все равно?`)) {
+          return;
+        }
       }
     }
 
@@ -93,7 +103,11 @@ export default function SettingsView({
     });
 
     onUpdateMembers(updated);
-    alert('Доли команды зафиксированы в P&L реестре.');
+    if (onShowToast) {
+      onShowToast('Доли команды зафиксированы в P&L реестре.', 'success');
+    } else {
+      alert('Доли команды зафиксированы в P&L реестре.');
+    }
   };
 
   return (

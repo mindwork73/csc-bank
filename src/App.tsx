@@ -45,6 +45,17 @@ export default function App() {
   const [globalSearch, setGlobalSearch] = useState<string>('');
   const [currentRole, setCurrentRole] = useState<'root' | 'admin' | 'finance' | 'operations' | 'logistics' | 'readonly'>('root');
 
+  // Unified persistent toasts system for iframe-safe user alert replacement
+  const [toasts, setToasts] = useState<{ id: string; message: string; type: 'success' | 'info' | 'warning' | 'error' }[]>([]);
+
+  const showToast = (message: string, type: 'success' | 'info' | 'warning' | 'error' = 'success') => {
+    const id = Date.now().toString() + Math.random().toString(36).substring(2, 5);
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 4500);
+  };
+
   // Persist state updates on change
   useEffect(() => {
     saveState(state);
@@ -369,6 +380,7 @@ export default function App() {
             globalSearch={globalSearch}
             darkMode={darkMode}
             currentRole={currentRole}
+            onShowToast={showToast}
           />
         );
       case 'parcels':
@@ -391,6 +403,7 @@ export default function App() {
             onUpdateBrokerShipment={handleUpdateBrokerShipment}
             onDeleteBrokerShipment={handleDeleteBrokerShipment}
             currentRole={currentRole}
+            onShowToast={showToast}
           />
         );
       case 'finance':
@@ -408,6 +421,7 @@ export default function App() {
             onUpdateProfitAllocation={(type) => setState(prev => ({ ...prev, profitAllocationType: type }))}
             darkMode={darkMode}
             currentRole={currentRole}
+            onShowToast={showToast}
           />
         );
       case 'analytics':
@@ -432,6 +446,7 @@ export default function App() {
             importHistory={state.importHistory || []}
             onAddImportSession={handleAddImportSession}
             currentRole={currentRole}
+            onShowToast={showToast}
           />
         );
       case 'journal':
@@ -462,6 +477,7 @@ export default function App() {
             onUpdateMembers={handleUpdateMembers}
             auditLogs={state.logs}
             darkMode={darkMode}
+            onShowToast={showToast}
           />
         );
       default:
@@ -470,19 +486,65 @@ export default function App() {
   };
 
   return (
-    <Sidebar
-      currentTab={currentTab}
-      setCurrentTab={setCurrentTab}
-      darkMode={darkMode}
-      setDarkMode={setDarkMode}
-      globalSearch={globalSearch}
-      setGlobalSearch={setGlobalSearch}
-      pendingAlertsCount={totalPendingAlerts}
-      gbpExchangeRate={state.settings.gbpExchangeRate}
-      currentRole={currentRole}
-      onChangeRole={setCurrentRole}
-    >
-      {renderTabContent()}
-    </Sidebar>
+    <>
+      <Sidebar
+        currentTab={currentTab}
+        setCurrentTab={setCurrentTab}
+        darkMode={darkMode}
+        setDarkMode={setDarkMode}
+        globalSearch={globalSearch}
+        setGlobalSearch={setGlobalSearch}
+        pendingAlertsCount={totalPendingAlerts}
+        gbpExchangeRate={state.settings.gbpExchangeRate}
+        currentRole={currentRole}
+        onChangeRole={setCurrentRole}
+      >
+        {renderTabContent()}
+      </Sidebar>
+
+      {/* FLOATING SYSTEM TOAST PANEL */}
+      <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none">
+        {toasts.map(t => {
+          const isError = t.type === 'error';
+          const isWarning = t.type === 'warning';
+          const isInfo = t.type === 'info';
+          return (
+            <div
+              key={t.id}
+              className={`p-3 rounded-lg border shadow-2xl flex items-center justify-between font-sans text-xs font-semibold pointer-events-auto transition-all ${
+                darkMode
+                  ? isError
+                    ? 'bg-rose-950/95 border-rose-500/40 text-rose-200'
+                    : isWarning
+                      ? 'bg-amber-950/95 border-amber-500/40 text-amber-200'
+                      : isInfo
+                        ? 'bg-indigo-950/95 border-indigo-505/40 text-indigo-200'
+                        : 'bg-emerald-950/95 border-emerald-500/40 text-emerald-250'
+                  : isError
+                    ? 'bg-rose-50 border-rose-200 text-rose-800'
+                    : isWarning
+                      ? 'bg-amber-50 border-amber-200 text-amber-800'
+                      : isInfo
+                        ? 'bg-indigo-50 border-indigo-200 text-indigo-800'
+                        : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <span className={`h-2 w-2 rounded-full ${
+                  isError ? 'bg-rose-500 animate-ping' : isWarning ? 'bg-amber-400' : isInfo ? 'bg-blue-400' : 'bg-emerald-400 shadow shadow-emerald-400'
+                }`} />
+                <span>{t.message}</span>
+              </div>
+              <button
+                onClick={() => setToasts(prev => prev.filter(x => x.id !== t.id))}
+                className="text-xs ml-4 hover:opacity-75 text-slate-400 font-mono focus:outline-none"
+              >
+                ×
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </>
   );
 }

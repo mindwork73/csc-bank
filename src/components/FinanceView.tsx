@@ -50,6 +50,7 @@ interface FinanceViewProps {
   onUpdateProfitAllocation: (type: 'common' | 'manager') => void;
   darkMode?: boolean;
   currentRole?: 'root' | 'admin' | 'finance' | 'operations' | 'logistics' | 'readonly';
+  onShowToast?: (message: string, type?: 'success' | 'info' | 'warning' | 'error') => void;
 }
 
 export default function FinanceView({
@@ -64,7 +65,8 @@ export default function FinanceView({
   profitAllocationType,
   onUpdateProfitAllocation,
   darkMode = true,
-  currentRole = 'root'
+  currentRole = 'root',
+  onShowToast
 }: FinanceViewProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('ALL');
@@ -122,7 +124,11 @@ export default function FinanceView({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (form.amount <= 0) {
-      alert('Укажите корректную сумму операции.');
+      if (onShowToast) {
+        onShowToast('Укажите корректную сумму операции.', 'error');
+      } else {
+        alert('Укажите корректную сумму операции.');
+      }
       return;
     }
 
@@ -138,6 +144,8 @@ export default function FinanceView({
       splitBetweenMembers: form.splitBetweenMembers,
       notes: form.notes
     });
+
+    onShowToast?.('Операция успешно добавлена в реестр', 'success');
 
     // Reset Form
     setForm({

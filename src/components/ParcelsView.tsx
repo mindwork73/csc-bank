@@ -58,6 +58,7 @@ interface ParcelsViewProps {
   onUpdateBrokerShipment: (shipment: BrokerShipment) => void;
   onDeleteBrokerShipment: (id: string) => void;
   currentRole?: 'root' | 'admin' | 'finance' | 'operations' | 'logistics' | 'readonly';
+  onShowToast?: (message: string, type?: 'success' | 'info' | 'warning' | 'error') => void;
 }
 
 export default function ParcelsView({
@@ -78,7 +79,8 @@ export default function ParcelsView({
   onAddBrokerShipment,
   onUpdateBrokerShipment,
   onDeleteBrokerShipment,
-  currentRole = 'root'
+  currentRole = 'root',
+  onShowToast
 }: ParcelsViewProps) {
   // Navigation tabs of Logistics panel
   const [activeTab, setActiveTab] = useState<'warehouse' | 'shipments' | 'legacy-boxes'>('warehouse');
@@ -225,7 +227,11 @@ export default function ParcelsView({
   const handleLegacySubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newParcelForm.title) {
-      alert('Заполните название посылки!');
+      if (onShowToast) {
+        onShowToast('Заполните название посылки!', 'error');
+      } else {
+        alert('Заполните название посылки!');
+      }
       return;
     }
 
@@ -242,6 +248,8 @@ export default function ParcelsView({
       sentAt: newParcelForm.status === ParcelStatus.SENT ? new Date().toISOString() : null,
       arrivedAt: null
     });
+
+    onShowToast?.('Сводный бокс успешно зарегистрирован в реестре', 'success');
 
     setNewParcelForm({
       title: '',
@@ -260,7 +268,11 @@ export default function ParcelsView({
   const handleAddBrokerItemSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newBrokerItemForm.title) {
-      alert('Укажите название поступившего товара!');
+      if (onShowToast) {
+        onShowToast('Укажите название поступившего товара!', 'error');
+      } else {
+        alert('Укажите название поступившего товара!');
+      }
       return;
     }
 
@@ -277,6 +289,8 @@ export default function ParcelsView({
       assignedTo: newBrokerItemForm.assignedTo,
       shipmentId: newBrokerItemForm.shipmentId || null
     });
+
+    onShowToast?.('Позиция поставщика успешно принята', 'success');
 
     setNewBrokerItemForm({
       title: '',

@@ -48,6 +48,7 @@ interface ImportViewProps {
   importHistory: ImportSession[];
   onAddImportSession: (session: ImportSession) => void;
   currentRole?: 'root' | 'admin' | 'finance' | 'operations' | 'logistics' | 'readonly';
+  onShowToast?: (message: string, type?: 'success' | 'info' | 'warning' | 'error') => void;
 }
 
 // ==========================================
@@ -158,7 +159,8 @@ export default function ImportView({
   darkMode = true,
   importHistory,
   onAddImportSession,
-  currentRole = 'root'
+  currentRole = 'root',
+  onShowToast
 }: ImportViewProps) {
   // Configured URLs
   const [sheet1Url, setSheet1Url] = useState('https://docs.google.com/spreadsheets/d/1YJ-MZAwcRyaR4aragBIqFBQwrH4g4yoXpWtwK_NHSzs/edit?usp=sharing');
@@ -656,11 +658,16 @@ export default function ImportView({
   const handleManualUploadSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!csvText.trim()) {
-      alert('Буфер CSV пустой.');
+      if (onShowToast) {
+        onShowToast('Буфер CSV пустой.', 'error');
+      } else {
+        alert('Буфер CSV пустой.');
+      }
       return;
     }
     addLogMsg(`Запуск ручного парсинга текстовых строк...`);
     processCsvContent(csvText, importType);
+    onShowToast?.('Данные успешно обработаны и импортированы', 'success');
     setCsvText('');
   };
 

@@ -48,6 +48,7 @@ interface OrdersViewProps {
   globalSearch: string;
   darkMode?: boolean;
   currentRole?: 'root' | 'admin' | 'finance' | 'operations' | 'logistics' | 'readonly';
+  onShowToast?: (message: string, type?: 'success' | 'info' | 'warning' | 'error') => void;
 }
 
 export default function OrdersView({
@@ -59,7 +60,8 @@ export default function OrdersView({
   onDeleteOrder,
   globalSearch,
   darkMode = true,
-  currentRole = 'root'
+  currentRole = 'root',
+  onShowToast
 }: OrdersViewProps) {
   // Local Filters state
   const [searchTerm, setSearchTerm] = useState('');
@@ -223,7 +225,11 @@ export default function OrdersView({
   const submitNewOrderForm = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newOrderForm.contact || !newOrderForm.productName) {
-      alert('Пожалуйста, заполните ФИО контакта и Название товара.');
+      if (onShowToast) {
+        onShowToast('Пожалуйста, заполните ФИО контакта и Название товара.', 'error');
+      } else {
+        alert('Пожалуйста, заполните ФИО контакта и Название товара.');
+      }
       return;
     }
 
@@ -247,6 +253,8 @@ export default function OrdersView({
       tags: tagsArray,
       source: newOrderForm.source
     });
+
+    onShowToast?.('Контракт успешно создан', 'success');
 
     // Reset Form
     setNewOrderForm({
