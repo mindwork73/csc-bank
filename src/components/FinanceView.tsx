@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   FinanceEntry, 
   FinanceType, 
@@ -51,6 +51,9 @@ interface FinanceViewProps {
   darkMode?: boolean;
   currentRole?: 'root' | 'admin' | 'finance' | 'operations' | 'logistics' | 'readonly';
   onShowToast?: (message: string, type?: 'success' | 'info' | 'warning' | 'error') => void;
+  onSelectRecord?: (type: 'order' | 'parcel', id: string) => void;
+  openAddModalOnLoad?: boolean;
+  onResetAddModalOnLoad?: () => void;
 }
 
 export default function FinanceView({
@@ -66,14 +69,47 @@ export default function FinanceView({
   onUpdateProfitAllocation,
   darkMode = true,
   currentRole = 'root',
-  onShowToast
+  onShowToast,
+  onSelectRecord,
+  openAddModalOnLoad = false,
+  onResetAddModalOnLoad
 }: FinanceViewProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('ALL');
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
+  const [memberFilter, setMemberFilter] = useState<string>('ALL');
+  const [commonFundFilter, setCommonFundFilter] = useState<string>('ALL'); // 'ALL' | 'COMMON' | 'PERSONAL'
+
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isSplitModalOpen, setIsSplitModalOpen] = useState(false);
+  const [isPayoutModalOpen, setIsPayoutModalOpen] = useState(false);
+
+  // Trigger modal if requested on load from global actions
+  useEffect(() => {
+    if (openAddModalOnLoad) {
+      setIsAddModalOpen(true);
+      if (onResetAddModalOnLoad) {
+        onResetAddModalOnLoad();
+      }
+    }
+  }, [openAddModalOnLoad, onResetAddModalOnLoad]);
+
   const [showConfirmClear, setShowConfirmClear] = useState(false);
   const [reconcileCheck, setReconcileCheck] = useState(false);
+
+  // Split Expense quick wizard form state
+  const [splitForm, setSplitForm] = useState({
+    amount: 0,
+    category: 'Логистика',
+    notes: 'Сплит расходов пополам'
+  });
+
+  // Payout personal vault balance form state
+  const [payoutForm, setPayoutForm] = useState({
+    amount: 0,
+    memberId: '',
+    notes: 'Частичная выплата личного баланса из сейфа'
+  });
 
   // Sorting state
   const [sortField, setSortField] = useState<string>('createdAt');
@@ -131,12 +167,25 @@ export default function FinanceView({
 
   // Filter list results
   const filteredEntries = finance.filter(f => {
-    const matchesSearch = f.notes.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          f.category.toLowerCase().includes(searchTerm.toLowerCase());
+    const term = searchTerm.toLowerCase();
+    const matchesSearch = f.notes.toLowerCase().includes(term) || 
+                          f.category.toLowerCase().includes(term) ||
+                          f.id.toLowerCase().includes(term) ||
+                          (f.orderId && f.orderId.toLowerCase().includes(term)) ||
+                          (f.parcelId && f.parcelId.toLowerCase().includes(term));
+
     const matchesType = typeFilter === 'ALL' || f.type === typeFilter;
     const matchesCategory = categoryFilter === 'ALL' || f.category === categoryFilter;
+    const matchesMember = memberFilter === 'ALL' || f.memberId === memberFilter;
 
-    return matchesSearch && matchesType && matchesCategory;
+    let matchesCommonFund = true;
+    if (commonFundFilter === 'COMMON') {
+      matchesCommonFund = f.affectsCommonFund;
+    } else if (commonFundFilter === 'PERSONAL') {
+      matchesCommonFund = !f.affectsCommonFund && !!f.memberId;
+    }
+
+    return matchesSearch && matchesType && matchesCategory && matchesMember && matchesCommonFund;
   });
 
   // Sort logic for transaction table
@@ -180,6 +229,70 @@ export default function FinanceView({
       currency: 'RUB', 
       maximumFractionDigits: 0 
     }).format(num);
+  };
+
+  const handleSplitSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (splitForm.amount <= 0) {
+      if (onShowToast) {
+        onShowToast('Пожалуйста, укажите корректную сумму траты.', 'warning');
+      } else {
+        alert('Пожалуйста, укажите корректную сумму траты.');
+      }
+      return;
+    }
+    onAddFinanceEntry({
+      type: FinanceType.EXPENSE,
+      category: splitForm.category,
+      amount: Number(splitForm.amount),
+      currency: 'RUB',
+      memberId: '', // Applies to all active partners
+      orderId: '',
+      parcelId: '',
+      affectsCommonFund: true,
+      splitBetweenMembers: true,
+      notes: `${splitForm.notes || 'Сплит расходов на команду партнёров'} (Сплит на всех)`
+    });
+    setIsSplitModalOpen(false);
+    setSplitForm({ amount: 0, category: 'Логистика', notes: 'Сплит расходов пополам' });
+    if (onShowToast) {
+      onShowToast('Успех: Расход записан и разделен поровну между всеми кураторами!', 'success');
+    }
+  };
+
+  const handlePayoutSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (payoutForm.amount <= 0 || !payoutForm.memberId) {
+      if (onShowToast) {
+        onShowToast('Укажите корректную сумму и куратора для выплаты.', 'error');
+      } else {
+        alert('Укажите корректную сумму и куратора.');
+      }
+      return;
+    }
+    const currentVault = calculatedBalances.members[payoutForm.memberId] || 0;
+    if (payoutForm.amount > currentVault) {
+      if (onShowToast) {
+        onShowToast(`Внимание: Баланс сейфа партнера (${fmt(currentVault)}) меньше запрашиваемой выплаты. Баланс уйдет в минус.`, 'warning');
+      }
+    }
+    onAddFinanceEntry({
+      type: FinanceType.PAYOUT,
+      category: 'Выплаты',
+      amount: Number(payoutForm.amount),
+      currency: 'RUB',
+      memberId: payoutForm.memberId,
+      orderId: '',
+      parcelId: '',
+      affectsCommonFund: false, // Subtracts from personal balance only (personal vault/payout model)
+      splitBetweenMembers: false,
+      notes: payoutForm.notes || 'Частичная выплата личного баланса из сейфа куратора'
+    });
+    setIsPayoutModalOpen(false);
+    setPayoutForm({ amount: 0, memberId: '', notes: 'Частичная выплата личного баланса из сейфа' });
+    if (onShowToast) {
+      onShowToast('Выплата успешно зарегистрирована в реестре сейфа партнера!', 'success');
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -325,17 +438,37 @@ export default function FinanceView({
         </div>
 
         {currentRole === 'root' || currentRole === 'admin' || currentRole === 'finance' ? (
-          <button
-            onClick={() => setIsAddModalOpen(true)}
-            className={`flex items-center space-x-2 font-mono font-bold text-xs px-4 py-2.5 rounded-lg shadow-lg transition-all ${
-              darkMode 
-                ? 'bg-indigo-650 hover:bg-indigo-550 bg-indigo-600 text-white' 
-                : 'bg-indigo-700 hover:bg-indigo-600 text-white'
-            }`}
-          >
-            <Plus className="h-4 w-4" />
-            <span>Записать Транзакцию</span>
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => setIsAddModalOpen(true)}
+              className={`flex items-center space-x-1.5 font-mono font-bold text-xs px-3.5 py-2.5 rounded-lg shadow-lg transition-all ${
+                darkMode 
+                  ? 'bg-indigo-600 hover:bg-indigo-500 text-white' 
+                  : 'bg-indigo-700 hover:bg-indigo-600 text-white'
+              }`}
+            >
+              <Plus className="h-4 w-4" />
+              <span>Записать Транзакцию</span>
+            </button>
+            <button
+              onClick={() => setIsSplitModalOpen(true)}
+              className="flex items-center space-x-1.5 font-mono font-bold text-xs px-3.5 py-2.5 rounded-lg shadow-lg transition-all bg-purple-600 hover:bg-purple-500 text-white"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Быстрый Сплит (+ Expense)</span>
+            </button>
+            <button
+              onClick={() => {
+                // Pre-seed first member id if empty
+                setPayoutForm(prev => ({ ...prev, memberId: members[0]?.id || '' }));
+                setIsPayoutModalOpen(true);
+              }}
+              className="flex items-center space-x-1.5 font-mono font-bold text-xs px-3.5 py-2.5 rounded-lg shadow-lg transition-all bg-pink-600 hover:bg-pink-500 text-white"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Выплата Curator Payout</span>
+            </button>
+          </div>
         ) : (
           <div className="flex items-center space-x-2 bg-slate-800/15 border border-slate-700/40 px-3 py-2.5 rounded-lg text-slate-400 font-mono text-[10px] uppercase font-bold">
             <span className="h-1.5 w-1.5 rounded-full bg-rose-450 bg-rose-500 animate-pulse"></span>
@@ -668,7 +801,7 @@ export default function FinanceView({
                 darkMode ? 'bg-[#0B0D12] border-[#222735] text-slate-300' : 'bg-slate-50 border-slate-200'
               }`}
             >
-              <option value="ALL">Любой Отвод</option>
+              <option value="ALL">Все операции</option>
               {Object.values(FinanceType).map(t => (
                 <option key={t} value={t}>{t}</option>
               ))}
@@ -686,6 +819,34 @@ export default function FinanceView({
               {categories.map(c => (
                 <option key={c} value={c}>{c}</option>
               ))}
+            </select>
+
+            {/* CURATOR FILTER */}
+            <select
+              value={memberFilter}
+              onChange={(e) => setMemberFilter(e.target.value)}
+              className={`text-[10px] sm:text-[11px] p-2 rounded focus:outline-none border font-mono ${
+                darkMode ? 'bg-[#0B0D12] border-[#222735] text-slate-300' : 'bg-slate-50 border-slate-200'
+              }`}
+            >
+              <option value="ALL">Все кураторы</option>
+              <option value="COMMON_POT">Без личного сейфа (Общая)</option>
+              {members.map(m => (
+                <option key={m.id} value={m.id}>{m.name.split(' ')[0]}</option>
+              ))}
+            </select>
+
+            {/* COMMON FUND VS PERSONAL VAULT OVERLAY */}
+            <select
+              value={commonFundFilter}
+              onChange={(e) => setCommonFundFilter(e.target.value)}
+              className={`text-[10px] sm:text-[11px] p-2 rounded focus:outline-none border font-mono ${
+                darkMode ? 'bg-[#0B0D12] border-[#222735] text-slate-300' : 'bg-slate-50 border-slate-200'
+              }`}
+            >
+              <option value="ALL">Все источники (Общ + Сейфы)</option>
+              <option value="COMMON">Только Общак (affects Common Fund)</option>
+              <option value="PERSONAL">Только личные сейфы партнеров</option>
             </select>
           </div>
         </div>
@@ -735,13 +896,21 @@ export default function FinanceView({
                     </td>
                     <td className="py-3 px-4">
                       {item.orderId ? (
-                        <span className="bg-indigo-900/40 text-indigo-300 font-mono text-[10px] px-2 py-0.5 rounded border border-indigo-500/10">
+                        <button 
+                          onClick={() => onSelectRecord && onSelectRecord('order', item.orderId)}
+                          className="bg-indigo-900/40 hover:bg-indigo-800/80 text-indigo-300 font-mono text-[10px] px-2 py-0.5 rounded border border-indigo-500/20 active:scale-95 transition-all cursor-pointer"
+                          title=" Перейти к деталям заказа в CRM"
+                        >
                           {item.orderId}
-                        </span>
+                        </button>
                       ) : item.parcelId ? (
-                        <span className="bg-amber-900/40 text-amber-300 font-mono text-[10px] px-2 py-0.5 rounded border border-amber-500/10">
+                        <button 
+                          onClick={() => onSelectRecord && onSelectRecord('parcel', item.parcelId)}
+                          className="bg-amber-900/40 hover:bg-amber-800/80 text-amber-300 font-mono text-[10px] px-2 py-0.5 rounded border border-amber-500/20 active:scale-95 transition-all cursor-pointer"
+                          title="Перейти к посылке в логистике"
+                        >
                           {item.parcelId}
-                        </span>
+                        </button>
                       ) : (
                         <span className="text-slate-500">-</span>
                       )}
@@ -979,6 +1148,197 @@ export default function FinanceView({
                   className="px-4 py-2 rounded-lg font-mono font-bold text-xs bg-[#1C1F2E] text-emerald-400 hover:bg-[#252B42] border border-[#2E364A] shadow"
                 >
                   Провести транзакцию в БД
+                </button>
+              </div>
+
+            </form>
+          </div>
+        </div>
+      )}
+      {/* ==========================================
+          SPLIT EXPENSE MODAL
+          ========================================== */}
+      {isSplitModalOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn font-sans text-xs">
+          <div className={`w-full max-w-md rounded-xl border p-5 ${
+            darkMode ? 'bg-[#0E1015] border-[#1D212A] text-white' : 'bg-white border-[#E2E8F0] text-slate-900'
+          }`}>
+            <div className="flex items-center justify-between border-b pb-3 mb-4 border-slate-700/20">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-purple-400 flex items-center space-x-1.5">
+                <Wallet className="h-4.5 w-4.5" />
+                <span>Быстрый Сплит Расхода (Equal Clearing Split)</span>
+              </h3>
+              <button 
+                onClick={() => setIsSplitModalOpen(false)} 
+                className="text-slate-400 hover:text-white transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <p className="text-slate-450 leading-relaxed text-[11px] mb-4 bg-purple-950/20 text-purple-300 p-2.5 rounded border border-purple-800/20 font-sans">
+              Калькулятор разделит общую сумму этой траты в системе <strong>поровну на всех активных кураторов ({members.length})</strong>. Касса «Общак» спишет указанную сумму, и на личный долг/баланс каждого партнера запишется соразмерная дебиторская доля.
+            </p>
+
+            <form onSubmit={handleSplitSubmit} className="space-y-4">
+              
+              <div className="space-y-1">
+                <label className="text-[10px] font-mono text-slate-500 uppercase font-bold">Сумма расхода (RUB)</label>
+                <input
+                  type="number"
+                  required
+                  value={splitForm.amount || ''}
+                  onChange={(e) => setSplitForm({...splitForm, amount: Number(e.target.value)})}
+                  placeholder="Напр. 60000 (разделится по 20000 на троих)"
+                  className={`w-full text-xs px-3 py-2 border rounded-md outline-none font-bold font-mono ${
+                    darkMode ? 'bg-[#141722] border-[#222735] text-white focus:border-purple-400' : 'bg-slate-50'
+                  }`}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-mono text-slate-500 uppercase font-bold">Статья учета / Категория</label>
+                <select
+                  value={splitForm.category}
+                  onChange={(e) => setSplitForm({...splitForm, category: e.target.value})}
+                  className={`w-full text-xs p-2 rounded-md border font-bold ${
+                    darkMode ? 'bg-[#141722] border-[#222735] text-white' : 'bg-white'
+                  }`}
+                >
+                  {categories.map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-mono text-slate-500 uppercase font-bold">Обоснование траты (Комментарий)</label>
+                <textarea
+                  required
+                  value={splitForm.notes}
+                  onChange={(e) => setSplitForm({...splitForm, notes: e.target.value})}
+                  placeholder="Например: Закупка коробок, расходка для принтеров, аренда и т.д."
+                  rows={2}
+                  className={`w-full text-xs px-3 py-2 border rounded-md outline-none leading-relaxed ${
+                    darkMode ? 'bg-[#141722] border-[#222735] text-white' : 'bg-white'
+                  }`}
+                />
+              </div>
+
+              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-700/20">
+                <button
+                  type="button"
+                  onClick={() => setIsSplitModalOpen(false)}
+                  className={`px-4 py-2 font-mono font-bold text-xs rounded-lg ${
+                    darkMode ? 'bg-[#1C1F2E] text-slate-400 hover:text-white' : 'bg-slate-100'
+                  }`}
+                >
+                  Отмена
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded-lg font-mono font-bold text-xs bg-purple-650 hover:bg-purple-550 text-white shadow"
+                >
+                  Провести сплит-трату
+                </button>
+              </div>
+
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ==========================================
+          CURATOR PAYOUT MODAL
+          ========================================== */}
+      {isPayoutModalOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn font-sans text-xs">
+          <div className={`w-full max-w-md rounded-xl border p-5 ${
+            darkMode ? 'bg-[#0E1015] border-[#1D212A] text-white' : 'bg-white border-[#E2E8F0] text-slate-900'
+          }`}>
+            <div className="flex items-center justify-between border-b pb-3 mb-4 border-slate-700/20">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-pink-400 flex items-center space-x-1.5">
+                <Wallet className="h-4.5 w-4.5" />
+                <span>Регистрация выплаты партнеру (Curator Payout)</span>
+              </h3>
+              <button 
+                onClick={() => setIsPayoutModalOpen(false)} 
+                className="text-slate-400 hover:text-white transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <p className="text-slate-450 leading-relaxed text-[11px] mb-4 bg-pink-955/20 bg-pink-950/10 text-pink-300 p-2.5 rounded border border-pink-800/10 font-sans">
+              Эта транзакция оформляет фактическую **выдачу (payout) наличных/средств куратору** из его накопительной доли сейфа. Она уменьшит личный баланс партнера, но никак не изменит общую оборотную кассу «Общак».
+            </p>
+
+            <form onSubmit={handlePayoutSubmit} className="space-y-4">
+              
+              <div className="space-y-1">
+                <label className="text-[10px] font-mono text-slate-500 uppercase font-bold">Партнер / Получатель выплаты</label>
+                <select
+                  value={payoutForm.memberId}
+                  onChange={(e) => setPayoutForm({...payoutForm, memberId: e.target.value})}
+                  className={`w-full text-xs p-2 rounded-md border font-bold ${
+                    darkMode ? 'bg-[#141722] border-[#222735] text-white' : 'bg-white'
+                  }`}
+                >
+                  <option value="">Выберите куратора...</option>
+                  {members.map(m => {
+                    const balance = calculatedBalances.members[m.id] || 0;
+                    return (
+                      <option key={m.id} value={m.id}>
+                        {m.name} (Доступно сейф-фонда: {fmt(balance)})
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-mono text-slate-500 uppercase font-bold">Сумма выплаты (RUB)</label>
+                <input
+                  type="number"
+                  required
+                  value={payoutForm.amount || ''}
+                  onChange={(e) => setPayoutForm({...payoutForm, amount: Number(e.target.value)})}
+                  placeholder="Сумма к выдаче..."
+                  className={`w-full text-xs px-3 py-2 border rounded-md outline-none font-bold font-mono ${
+                    darkMode ? 'bg-[#141722] border-[#222735] text-white focus:border-pink-400' : 'bg-slate-50'
+                  }`}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-mono text-slate-500 uppercase font-bold">Бухгалтерские заметки</label>
+                <textarea
+                  required
+                  value={payoutForm.notes}
+                  onChange={(e) => setPayoutForm({...payoutForm, notes: e.target.value})}
+                  placeholder="Опишите операцию, например: Выплата части маржи за Май на личную Сбер-карту"
+                  rows={2}
+                  className={`w-full text-xs px-3 py-2 border rounded-md outline-none leading-relaxed ${
+                    darkMode ? 'bg-[#141722] border-[#222735] text-white' : 'bg-white'
+                  }`}
+                />
+              </div>
+
+              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-700/20">
+                <button
+                  type="button"
+                  onClick={() => setIsPayoutModalOpen(false)}
+                  className={`px-4 py-2 font-mono font-bold text-xs rounded-lg ${
+                    darkMode ? 'bg-[#1C1F2E] text-slate-400 hover:text-white' : 'bg-slate-100'
+                  }`}
+                >
+                  Отмена
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded-lg font-mono font-bold text-xs bg-pink-650 hover:bg-pink-550 text-white shadow"
+                >
+                  Зафиксировать выплату
                 </button>
               </div>
 

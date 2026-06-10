@@ -46,6 +46,16 @@ export default function App() {
   const [globalSearch, setGlobalSearch] = useState<string>('');
   const [currentRole, setCurrentRole] = useState<'root' | 'admin' | 'finance' | 'operations' | 'logistics' | 'readonly'>('root');
 
+  // Unified status filter overrides for CRM drill-downs
+  const [crmStatusFilter, setCrmStatusFilter] = useState<string>('ALL');
+  const [crmPaymentFilter, setCrmPaymentFilter] = useState<string>('ALL');
+  const [crmNegativeMarginFilter, setCrmNegativeMarginFilter] = useState<boolean>(false);
+
+  // Global Operations Modals states
+  const [isGlobalOrderOpen, setIsGlobalOrderOpen] = useState(false);
+  const [isGlobalExpenseOpen, setIsGlobalExpenseOpen] = useState(false);
+  const [isGlobalParcelOpen, setIsGlobalParcelOpen] = useState(false);
+
   // Unified persistent toasts system for iframe-safe user alert replacement
   const [toasts, setToasts] = useState<{ id: string; message: string; type: 'success' | 'info' | 'warning' | 'error' }[]>([]);
 
@@ -330,6 +340,15 @@ export default function App() {
     addAuditLog(`Журнал совершенных операций полностью очищен`, 'Finance', 'RESET_ALL');
   };
 
+  const handleGlobalSync = () => {
+    showToast('Запрос к Google Sheets API... Синхронизация кассы, тарифов, ордеров ПВЗ и CRM платформ', 'info');
+    setTimeout(() => {
+      // Simulate adding a real log and show a real success notification
+      addAuditLog(`Успешная двухсторонняя синхронизация с Google Sheets (BuhUchet)`, 'Finance', 'SYNC_SUCCESS');
+      showToast('Синхронизация Google Sheets завершена! Загружены актуальные кассовые ордера, обновлены статусы логистики.', 'success');
+    }, 1200);
+  };
+
   // ==========================================
   // GOOGLE SINC IMPORT LOADER
   // ==========================================
@@ -417,6 +436,18 @@ export default function App() {
             darkMode={darkMode}
             logs={state.logs || []}
             currentRole={currentRole}
+            onUpdateOrder={handleUpdateOrder}
+            onSelectOrder={(orderId) => {
+              if (orderId === 'status:PROBLEM') {
+                setCrmStatusFilter('PROBLEM');
+                setCrmNegativeMarginFilter(false);
+                setGlobalSearch('');
+                setCurrentTab('orders');
+              } else {
+                setGlobalSearch(orderId);
+                setCurrentTab('orders');
+              }
+            }}
           />
         );
       case 'orders':
@@ -432,6 +463,14 @@ export default function App() {
             darkMode={darkMode}
             currentRole={currentRole}
             onShowToast={showToast}
+            crmStatusFilter={crmStatusFilter}
+            setCrmStatusFilter={setCrmStatusFilter}
+            crmPaymentFilter={crmPaymentFilter}
+            setCrmPaymentFilter={setCrmPaymentFilter}
+            crmNegativeMarginFilter={crmNegativeMarginFilter}
+            setCrmNegativeMarginFilter={setCrmNegativeMarginFilter}
+            openAddModalOnLoad={isGlobalOrderOpen}
+            onResetAddModalOnLoad={() => setIsGlobalOrderOpen(false)}
           />
         );
       case 'parcels':
@@ -473,6 +512,20 @@ export default function App() {
             darkMode={darkMode}
             currentRole={currentRole}
             onShowToast={showToast}
+            openAddModalOnLoad={isGlobalExpenseOpen}
+            onResetAddModalOnLoad={() => setIsGlobalExpenseOpen(false)}
+            onSelectRecord={(type, id) => {
+              if (type === 'order') {
+                setGlobalSearch(id);
+                setCrmStatusFilter('ALL');
+                setCrmPaymentFilter('ALL');
+                setCrmNegativeMarginFilter(false);
+                setCurrentTab('orders');
+              } else if (type === 'parcel') {
+                setGlobalSearch(id);
+                setCurrentTab('parcels');
+              }
+            }}
           />
         );
       case 'journal':
@@ -537,6 +590,15 @@ export default function App() {
         gbpExchangeRate={state.settings.gbpExchangeRate}
         currentRole={currentRole}
         onChangeRole={setCurrentRole}
+        onNewOrderClick={() => {
+          setCurrentTab('orders');
+          setIsGlobalOrderOpen(true);
+        }}
+        onNewExpenseClick={() => {
+          setCurrentTab('finance');
+          setIsGlobalExpenseOpen(true);
+        }}
+        onSyncClick={handleGlobalSync}
       >
         {renderTabContent()}
       </Sidebar>

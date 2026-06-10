@@ -38,6 +38,8 @@ import {
   ArrowRight
 } from 'lucide-react';
 
+import { useEffect } from 'react';
+
 interface OrdersViewProps {
   orders: Order[];
   parcels: Parcel[];
@@ -49,6 +51,14 @@ interface OrdersViewProps {
   darkMode?: boolean;
   currentRole?: 'root' | 'admin' | 'finance' | 'operations' | 'logistics' | 'readonly';
   onShowToast?: (message: string, type?: 'success' | 'info' | 'warning' | 'error') => void;
+  crmStatusFilter?: string;
+  setCrmStatusFilter?: (val: string) => void;
+  crmPaymentFilter?: string;
+  setCrmPaymentFilter?: (val: string) => void;
+  crmNegativeMarginFilter?: boolean;
+  setCrmNegativeMarginFilter?: (value: boolean) => void;
+  openAddModalOnLoad?: boolean;
+  onResetAddModalOnLoad?: () => void;
 }
 
 export default function OrdersView({
@@ -61,7 +71,15 @@ export default function OrdersView({
   globalSearch,
   darkMode = true,
   currentRole = 'root',
-  onShowToast
+  onShowToast,
+  crmStatusFilter = 'ALL',
+  setCrmStatusFilter,
+  crmPaymentFilter = 'ALL',
+  setCrmPaymentFilter,
+  crmNegativeMarginFilter = false,
+  setCrmNegativeMarginFilter,
+  openAddModalOnLoad = false,
+  onResetAddModalOnLoad
 }: OrdersViewProps) {
   // Local Filters state
   const [searchTerm, setSearchTerm] = useState('');
@@ -70,6 +88,26 @@ export default function OrdersView({
   const [managerFilter, setManagerFilter] = useState<string>('ALL');
   const [liquidFilter, setLiquidFilter] = useState<string>('ALL');
   const [monthFilter, setMonthFilter] = useState<string>('ALL');
+  const [negativeMarginFilter, setNegativeMarginFilter] = useState<boolean>(false);
+
+  // Sync with global custom overrides from Quick Actions
+  useEffect(() => {
+    if (crmStatusFilter) {
+      setStatusFilter(crmStatusFilter);
+    }
+  }, [crmStatusFilter]);
+
+  useEffect(() => {
+    if (crmPaymentFilter) {
+      setPaymentFilter(crmPaymentFilter);
+    }
+  }, [crmPaymentFilter]);
+
+  useEffect(() => {
+    if (crmNegativeMarginFilter !== undefined) {
+      setNegativeMarginFilter(crmNegativeMarginFilter);
+    }
+  }, [crmNegativeMarginFilter]);
 
   // Dynamically extract all available months of orders
   const availableMonths = useMemo(() => {
@@ -117,6 +155,16 @@ export default function OrdersView({
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
+
+  // Trigger modal if requested on load from global actions
+  useEffect(() => {
+    if (openAddModalOnLoad) {
+      setIsAddModalOpen(true);
+      if (onResetAddModalOnLoad) {
+        onResetAddModalOnLoad();
+      }
+    }
+  }, [openAddModalOnLoad, onResetAddModalOnLoad]);
 
   // New Order Form state
   const [newOrderForm, setNewOrderForm] = useState({
@@ -175,7 +223,10 @@ export default function OrdersView({
       }
     }
 
-    return matchesSearch && matchesStatus && matchesPayment && matchesManager && matchesLiquid && matchesMonth;
+    // 7. Negative Margin Match
+    const matchesNegativeMargin = !negativeMarginFilter || (o.clientPrice < o.costPrice && o.orderStatus !== OrderStatus.CANCELLED);
+
+    return matchesSearch && matchesStatus && matchesPayment && matchesManager && matchesLiquid && matchesMonth && matchesNegativeMargin;
   });
 
   // Sort logic for operation table
@@ -416,6 +467,37 @@ export default function OrdersView({
     return (
       <span className={`px-2 py-0.5 rounded text-[10px] font-mono border ${style}`}>
         {p}
+      </span>
+    );
+  };
+
+  const getShippingStatusBadge = (s: ShippingStatus) => {
+    let style = '';
+    switch (s) {
+      case ShippingStatus.NOT_SHIPPED:
+        style = 'bg-slate-800 text-slate-500 border-slate-700/50';
+        break;
+      case ShippingStatus.FORMING:
+        style = 'bg-blue-300/10 text-blue-400 border-blue-500/20';
+        break;
+      case ShippingStatus.UK_WAREHOUSE:
+        style = 'bg-amber-300/10 text-amber-400 border-amber-500/20';
+        break;
+      case ShippingStatus.TRANSIT:
+        style = 'bg-indigo-300/10 text-indigo-400 border-indigo-500/25';
+        break;
+      case ShippingStatus.ARRIVED:
+        style = 'bg-teal-300/10 text-teal-400 border-teal-400/20';
+        break;
+      case ShippingStatus.ISSUED:
+        style = 'bg-emerald-300/10 text-emerald-400 border-emerald-500/20';
+        break;
+      default:
+        style = 'bg-slate-900 text-slate-400 border-slate-700';
+    }
+    return (
+      <span className={`px-2 py-0.5 rounded text-[10px] font-mono border ${style}`}>
+        {s || 'Не отправлен'}
       </span>
     );
   };
@@ -664,15 +746,18 @@ export default function OrdersView({
                   />
                 </th>
                 <th onClick={() => handleSort('id_num')} className="py-3.5 px-3 cursor-pointer hover:text-white select-none">Индекс{sortField === 'id_num' ? (sortDirection === 'asc' ? ' 🔼' : ' 🔽') : ''}</th>
-                <th onClick={() => handleSort('contact')} className="py-3.5 px-4 cursor-pointer hover:text-white select-none">Клиент в Telegram / CRM{sortField === 'contact' ? (sortDirection === 'asc' ? ' 🔼' : ' 🔽') : ''}</th>
-                <th onClick={() => handleSort('productName')} className="py-3.5 px-4 cursor-pointer hover:text-white select-none">Товары и опции{sortField === 'productName' ? (sortDirection === 'asc' ? ' 🔼' : ' 🔽') : ''}</th>
-                <th onClick={() => handleSort('costPrice')} className="py-3.5 px-4 text-right cursor-pointer hover:text-white select-none">Выкуп{sortField === 'costPrice' ? (sortDirection === 'asc' ? ' 🔼' : ' 🔽') : ''}</th>
-                <th onClick={() => handleSort('clientPrice')} className="py-3.5 px-4 text-right cursor-pointer hover:text-white select-none">Цена для клиента{sortField === 'clientPrice' ? (sortDirection === 'asc' ? ' 🔼' : ' 🔽') : ''}</th>
-                <th onClick={() => handleSort('margin')} className="py-3.5 px-4 text-right cursor-pointer hover:text-white select-none">Чистая Дельта{sortField === 'margin' ? (sortDirection === 'asc' ? ' 🔼' : ' 🔽') : ''}</th>
+                <th onClick={() => handleSort('contact')} className="py-3.5 px-4 cursor-pointer hover:text-white select-none">Контакт{sortField === 'contact' ? (sortDirection === 'asc' ? ' 🔼' : ' 🔽') : ''}</th>
+                <th onClick={() => handleSort('productName')} className="py-3.5 px-4 cursor-pointer hover:text-white select-none">Товар / услуга{sortField === 'productName' ? (sortDirection === 'asc' ? ' 🔼' : ' 🔽') : ''}</th>
+                <th onClick={() => handleSort('costPrice')} className="py-3.5 px-4 text-right cursor-pointer hover:text-white select-none">Себестоимость{sortField === 'costPrice' ? (sortDirection === 'asc' ? ' 🔼' : ' 🔽') : ''}</th>
+                <th onClick={() => handleSort('clientPrice')} className="py-3.5 px-4 text-right cursor-pointer hover:text-white select-none">Цена клиента{sortField === 'clientPrice' ? (sortDirection === 'asc' ? ' 🔼' : ' 🔽') : ''}</th>
+                <th onClick={() => handleSort('margin')} className="py-3.5 px-4 text-right cursor-pointer hover:text-white select-none">Маржа{sortField === 'margin' ? (sortDirection === 'asc' ? ' 🔼' : ' 🔽') : ''}</th>
                 <th onClick={() => handleSort('orderStatus')} className="py-3.5 px-4 cursor-pointer hover:text-white select-none">Статус Заказа{sortField === 'orderStatus' ? (sortDirection === 'asc' ? ' 🔼' : ' 🔽') : ''}</th>
-                <th onClick={() => handleSort('paymentStatus')} className="py-3.5 px-4 cursor-pointer hover:text-white select-none">Статус Кассы{sortField === 'paymentStatus' ? (sortDirection === 'asc' ? ' 🔼' : ' 🔽') : ''}</th>
-                <th onClick={() => handleSort('assignedTo')} className="py-3.5 px-4 cursor-pointer hover:text-white select-none">Куратор{sortField === 'assignedTo' ? (sortDirection === 'asc' ? ' 🔼' : ' 🔽') : ''}</th>
-                <th className="py-3.5 px-4 w-12 text-center select-none">Управление</th>
+                <th onClick={() => handleSort('paymentStatus')} className="py-3.5 px-4 cursor-pointer hover:text-white select-none">Статус Оплаты{sortField === 'paymentStatus' ? (sortDirection === 'asc' ? ' 🔼' : ' 🔽') : ''}</th>
+                <th onClick={() => handleSort('shippingStatus')} className="py-3.5 px-4 cursor-pointer hover:text-white select-none">Статус Доставки{sortField === 'shippingStatus' ? (sortDirection === 'asc' ? ' 🔼' : ' 🔽') : ''}</th>
+                <th onClick={() => handleSort('parcelId')} className="py-3.5 px-4 cursor-pointer hover:text-white select-none">Посылка{sortField === 'parcelId' ? (sortDirection === 'asc' ? ' 🔼' : ' 🔽') : ''}</th>
+                <th onClick={() => handleSort('assignedTo')} className="py-3.5 px-4 cursor-pointer hover:text-white select-none">Ответственный{sortField === 'assignedTo' ? (sortDirection === 'asc' ? ' 🔼' : ' 🔽') : ''}</th>
+                <th onClick={() => handleSort('createdAt')} className="py-3.5 px-4 cursor-pointer hover:text-white select-none">Дата{sortField === 'createdAt' ? (sortDirection === 'asc' ? ' 🔼' : ' 🔽') : ''}</th>
+                <th className="py-3.5 px-4 w-12 text-center select-none">Действия</th>
               </tr>
             </thead>
             <tbody className={`divide-y ${darkMode ? 'divide-[#1D212A]' : 'divide-[#ECEFF4]'}`}>
@@ -681,6 +766,7 @@ export default function OrdersView({
                 const assignedMember = members.find(m => m.id === order.assignedTo);
                 const margin = order.clientPrice - order.costPrice;
                 const isUnprofitable = margin < 0;
+                const creationDate = order.createdAt ? new Date(order.createdAt).toLocaleDateString('ru-RU', {day: 'numeric', month: 'short'}) : '—';
 
                 return (
                   <tr 
@@ -713,7 +799,7 @@ export default function OrdersView({
                       <span className="flex flex-col">
                         <span>{order.id}</span>
                         {order.hasLiquid && (
-                          <span className="text-[8px] tracking-wide font-extrabold uppercase font-mono text-emerald-450 text-emerald-450 mt-1">
+                          <span className="text-[8px] tracking-wide font-extrabold uppercase font-mono text-emerald-400 mt-1">
                             💧 LIQUID
                           </span>
                         )}
@@ -723,13 +809,13 @@ export default function OrdersView({
                     {/* Client contact info */}
                     <td className="py-3.5 px-4 font-mono">
                       <div>
-                        <p className="font-bold text-slate-205 text-slate-200">{order.contact}</p>
-                        <span className="text-[10px] text-slate-500">Канал: {order.source}</span>
+                        <p className="font-bold text-slate-200">{order.contact}</p>
+                        <span className="text-[10px] text-slate-500">{order.source}</span>
                       </div>
                     </td>
 
                     {/* Product Name & Tags */}
-                    <td className="py-3.5 px-4 font-medium max-w-[220px] truncate">
+                    <td className="py-3.5 px-4 font-medium max-w-[180px] truncate">
                       <div>
                         <p className="text-[#ECEFF4] font-bold truncate">{order.productName}</p>
                         <div className="flex flex-wrap gap-1 mt-1">
@@ -752,8 +838,8 @@ export default function OrdersView({
                       {fmt(order.clientPrice)}
                     </td>
 
-                    {/* Net Earnings Markup */}
-                    <td className={`py-3.5 px-4 text-right font-mono font-bold ${isUnprofitable ? 'text-rose-450' : 'text-emerald-400'}`}>
+                    {/* Net Earnings Margin */}
+                    <td className={`py-3.5 px-4 text-right font-mono font-bold ${isUnprofitable ? 'text-rose-450 text-rose-450' : 'text-emerald-400'}`}>
                       {fmt(margin)}
                     </td>
 
@@ -767,12 +853,33 @@ export default function OrdersView({
                       {getPaymentStatusBadge(order.paymentStatus)}
                     </td>
 
+                    {/* Shipping Status badge */}
+                    <td className="py-3.5 px-4">
+                      {getShippingStatusBadge(order.shippingStatus)}
+                    </td>
+
+                    {/* Bound Parcel */}
+                    <td className="py-3.5 px-4 font-mono text-[10px]">
+                      {order.parcelId ? (
+                        <span className="px-1.5 py-0.5 rounded bg-indigo-950/40 text-indigo-400 border border-indigo-500/15 font-semibold">
+                          {order.parcelId}
+                        </span>
+                      ) : (
+                        <span className="text-slate-550 text-slate-500">—</span>
+                      )}
+                    </td>
+
                     {/* Assigned Curator Manager */}
                     <td className="py-3.5 px-4 text-[#8E939E] font-mono font-semibold">
                       <span className="flex items-center space-x-1.5">
-                        <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                         <span>{assignedMember?.name || 'НЕТ КУРАТОРА'}</span>
                       </span>
+                    </td>
+
+                    {/* Date */}
+                    <td className="py-3.5 px-4 font-mono text-[#8E939E]">
+                      {creationDate}
                     </td>
 
                     {/* Interactive Side Drawer Trigger button */}
@@ -792,7 +899,7 @@ export default function OrdersView({
 
               {sortedOrders.length === 0 && (
                 <tr>
-                  <td colSpan={11} className="py-16 text-center text-slate-500 font-mono text-xs">
+                  <td colSpan={14} className="py-16 text-center text-slate-500 font-mono text-xs">
                     Ни одного контракта не удовлетворяет условиям селекционных фильтров.
                   </td>
                 </tr>

@@ -27,7 +27,9 @@ import {
   Sparkles,
   Command,
   History,
-  ClipboardList
+  ClipboardList,
+  Plus,
+  RefreshCw
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -42,6 +44,9 @@ interface SidebarProps {
   gbpExchangeRate?: number;
   currentRole: 'root' | 'admin' | 'finance' | 'operations' | 'logistics' | 'readonly';
   onChangeRole: (role: 'root' | 'admin' | 'finance' | 'operations' | 'logistics' | 'readonly') => void;
+  onNewOrderClick?: () => void;
+  onNewExpenseClick?: () => void;
+  onSyncClick?: () => void;
 }
 
 export default function Sidebar({
@@ -55,7 +60,10 @@ export default function Sidebar({
   pendingAlertsCount,
   gbpExchangeRate,
   currentRole,
-  onChangeRole
+  onChangeRole,
+  onNewOrderClick,
+  onNewExpenseClick,
+  onSyncClick
 }: SidebarProps) {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showPalette, setShowPalette] = useState(false);
@@ -194,6 +202,39 @@ export default function Sidebar({
               </div>
             ))}
           </nav>
+
+          {/* Global Quick Operations */}
+          {currentRole !== 'readonly' && (
+            <div className="mx-4 mb-4 space-y-2 pt-3 border-t border-dashed border-[#1D212A]">
+              <span className="block text-[9px] font-mono tracking-widest text-slate-500 font-bold uppercase pl-1.5 mb-1.5">
+                Быстрые Операции
+              </span>
+              <button 
+                onClick={onNewOrderClick}
+                className="w-full flex items-center space-x-2 px-2.5 py-2 bg-emerald-950/30 hover:bg-emerald-900/30 text-emerald-300 rounded-lg text-xs font-semibold border border-emerald-500/10 active:scale-95 transition-all text-left"
+                title="Быстрое добавление нового заказа в CRM"
+              >
+                <Plus className="h-4 w-4 shrink-0 text-emerald-400" />
+                <span>+ Новый Заказ</span>
+              </button>
+              <button 
+                onClick={onNewExpenseClick}
+                className="w-full flex items-center space-x-2 px-2.5 py-2 bg-indigo-950/30 hover:bg-indigo-900/40 text-indigo-300 rounded-lg text-xs font-semibold border border-indigo-500/10 active:scale-95 transition-all text-left"
+                title="Быстрая запись расхода в Ledger"
+              >
+                <Plus className="h-4 w-4 shrink-0 text-indigo-400" />
+                <span>+ Запись Расхода</span>
+              </button>
+              <button 
+                onClick={onSyncClick}
+                className="w-full flex items-center space-x-2 px-2.5 py-2 bg-amber-950/20 hover:bg-amber-900/30 text-amber-300 rounded-lg text-xs font-semibold border border-amber-500/10 active:scale-95 transition-all text-left"
+                title="Мгновенный обмен данными с Google Sheets таблицами"
+              >
+                <RefreshCw className="h-3.5 w-3.5 shrink-0 text-amber-500 animate-none hover:animate-spin" />
+                <span>🔄 Синхро Sheets</span>
+              </button>
+            </div>
+          )}
 
           {/* Embedded live indicators & Exchange rates */}
           <div className={`p-4 border-t font-mono text-[10px] space-y-2.5 ${
