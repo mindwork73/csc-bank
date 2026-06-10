@@ -212,23 +212,23 @@ export default function ImportView({
       sheetName = 'Заказы';
     } else if (type === 'finance') {
       targetUrl = sheet1Url;
-      sheetName = 'Бухучет';
+      sheetName = 'Новый Бух. учёт';
     } else {
       targetUrl = sheet2Url;
       sheetName = 'Not paid parcels';
     }
 
-    const csvExportUrl = getGoogleSheetsCSVUrl(targetUrl, sheetName);
-    addLogMsg(`Трансляция ссылки в экспортный формат: ${csvExportUrl.slice(0, 50)}...`);
+    addLogMsg(`Подключение через прокси сервера к листу [${sheetName}]...`);
+    const proxyUrl = `/api/proxy-sheet?url=${encodeURIComponent(targetUrl)}&sheet=${encodeURIComponent(sheetName)}`;
 
     try {
-      const response = await fetch(csvExportUrl);
+      const response = await fetch(proxyUrl);
       if (!response.ok) throw new Error(`HTTP Error ${response.status}`);
       const text = await response.text();
       processCsvContent(text, type);
     } catch (e: any) {
-      addLogMsg(`Ошибка прямого сетевого подключения (Возможно сработал CORS или Sheet запривачен): ${e.message}`);
-      addLogMsg(`РЕКОМЕНДАЦИЯ: Используйте текстовый буфер CSV (находится ниже) для ручного импорта без задержек.`);
+      addLogMsg(`Ошибка сетевого подключения через прокси: ${e.message}`);
+      addLogMsg(`РЕКОМЕНДАЦИЯ: Используйте текстовый буфер CSV (находится ниже) для ручного импорта.`);
       
       triggerSimulationImport(type);
     } finally {
@@ -594,13 +594,50 @@ export default function ImportView({
         onAddImportSession(session);
 
       } else {
-        const parsedParcels: Parcel[] = rows.map((r, i) => {
-          const title = r['Название'] || r['Посылка'] || r['Коробка'] || '';
-          const shippingFeeGbp = Number(r['Доставка GBP'] || r['Gbp'] || r['Fee']) || 0;
+        const parsedParcels: Parcel[] = [];
+        const keys = Object.keys(rows[0] || {});
+        const firstKey = keys[0] || '';
+        const secondKey = keys[1] || '';
 
-          if (!title || shippingFeeGbp === 0) skipped += 1;
+        // If the headers themselves contain actual data, treat the first line as a valid cargo row
+        const headersLookLikeData = firstKey && 
+          firstKey.toLowerCase() !== 'название' && 
+          firstKey.toLowerCase() !== 'посылка' && 
+          firstKey.toLowerCase() !== 'коробка' && 
+          firstKey.toLowerCase() !== 'title' && 
+          firstKey.toLowerCase() !== 'name';
+        
+        if (headersLookLikeData) {
+          const feeGbp = Number(secondKey.replace(/[^0-9]/g, '')) || 5;
+          parsedParcels.push({
+            id: `PRC-IMP-head`,
+            title: firstKey,
+            parcelType: 'regular',
+            shippingFeeGbp: feeGbp,
+            exchangeRate: 122.5,
+            shippingFeeLocal: feeGbp * 122.5,
+            containsLiquid: false,
+            status: ParcelStatus.ARRIVED,
+            notes: 'Импортировано из Англии (Заголовок)',
+            createdAt: new Date().toISOString(),
+            sentAt: null,
+            arrivedAt: new Date().toISOString(),
+            assignedTo: 'mem-ilya',
+            trackingCode: 'CSC-ARR-9584'
+          });
+        }
 
-          return {
+        rows.forEach((r, i) => {
+          const title = r['Название'] || r['Посылка'] || r['Коробка'] || r[firstKey] || '';
+          const rawFee = String(r['Доставка GBP'] || r['Gbp'] || r['Fee'] || r[secondKey] || '');
+          const shippingFeeGbp = Number(rawFee.replace(/[^0-9]/g, '')) || 5;
+
+          if (!title) {
+            skipped += 1;
+            return;
+          }
+
+          parsedParcels.push({
             id: `PRC-IMP-${100 + i}`,
             title: title || `Импортированный бокс #${i}`,
             parcelType: 'regular',
@@ -614,21 +651,21 @@ export default function ImportView({
             sentAt: null,
             arrivedAt: new Date().toISOString(),
             assignedTo: 'mem-ilya',
-            trackingCode: r['Трек'] || r['Tracking'] || 'CSC-ARR-9584'
-          };
+            trackingCode: r['Трек'] || r['Tracking'] || 'CSC-ARR-9585'
+          });
         });
 
         if (dryRunMode) {
           setDryRunStats({
-            parsedCount: rows.length,
+            parsedCount: rows.length + (headersLookLikeData ? 1 : 0),
             skippedCount: skipped,
             conflictCount: conflicts,
-            newItemsCount: parsedParcels.length - skipped,
+            newItemsCount: parsedParcels.length,
             detectedHeaders: headers,
             importType: 'Английские Сборы (Боксы)'
           });
           setShowDryRunResults(true);
-          addLogMsg(`[DRY RUN] Имитация успешна. Будут импортированы: ${parsedParcels.length - skipped} боксов.`);
+          addLogMsg(`[DRY RUN] Имитация успешна. Будут импортированы: ${parsedParcels.length} боксов.`);
           return;
         }
 

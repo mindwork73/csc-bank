@@ -333,7 +333,7 @@ export default function DashboardView({
         {/* 1. Gross Revenue Card */}
         <div 
           onClick={() => onSwitchTab('analytics')}
-          title="ОБОРОТ ГРУППЫ: Общая сумма по заказам клиентов без учета затрат. Увеличился на 14.8% относительно предыдущего месяца."
+          title="ОБОРОТ ГРУППЫ: Общая сумма по заказам клиентов без учета затрат. Увеличился относительно стартового периода."
           className={`p-4 rounded-xl border relative cursor-pointer group transition-all duration-200 hover:scale-[1.01] ${
             darkMode 
               ? 'bg-[#11131A] border-[#1D212A] hover:border-emerald-500/40 shadow-lg shadow-black/30' 
@@ -352,7 +352,13 @@ export default function DashboardView({
             </h3>
             <div className="flex items-center gap-1 mt-1 text-[9.5px] font-mono font-bold text-emerald-400">
               <ArrowUpRight className="h-2.5 w-2.5" />
-              <span>+14.8% vs пред.</span>
+              <span>
+                {(() => {
+                  const prevRev = 1900000;
+                  const delta = prevRev > 0 ? ((totalRevenue - prevRev) / prevRev) * 100 : 0;
+                  return `${delta >= 0 ? '+' : ''}${delta.toFixed(1)}% vs пред.`;
+                })()}
+              </span>
             </div>
             <div className="flex items-center gap-1 mt-1 text-[8.5px] font-mono text-slate-550">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
@@ -388,10 +394,15 @@ export default function DashboardView({
             <div className="flex items-center justify-between mt-1 text-[9.5px] font-mono leading-none text-slate-400">
               <span>Доля: {totalRevenue ? ((totalNetProfit / totalRevenue) * 100).toFixed(1) : 0}%</span>
               <span className="text-emerald-500 font-bold flex items-center gap-0.5">
-                <ArrowUpRight className="h-2 w-2" /> 8.3%
+                <ArrowUpRight className="h-2 w-2" />
+                {(() => {
+                  const prevProfit = 750000;
+                  const delta = prevProfit > 0 ? ((totalNetProfit - prevProfit) / prevProfit) * 100 : 0;
+                  return `${delta >= 0 ? '+' : ''}${delta.toFixed(1)}%`;
+                })()}
               </span>
             </div>
-            <div className="flex items-center gap-1 mt-1.5 text-[8.5px] font-mono text-slate-550">
+            <div className="flex items-center gap-1 mt-1.5 text-[8.5px] font-mono text-slate-555">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
               <span>Синхронизировано</span>
             </div>
@@ -404,7 +415,7 @@ export default function DashboardView({
         {/* 3. Active CRM Orders */}
         <div 
           onClick={() => onSwitchTab('orders')}
-          title="ЗАКАЗЫ В РАБОТЕ: Число активных ордеров в CRM на этапе оформления, выкупа либо доставки. Рост на 5% за неделю."
+          title="ЗАКАЗЫ В РАБОТЕ: Число активных ордеров в CRM на этапе оформления, выкупа либо доставки."
           className={`p-4 rounded-xl border relative cursor-pointer group transition-all duration-200 hover:scale-[1.01] ${
             darkMode 
               ? 'bg-[#11131A] border-[#1D212A] hover:border-indigo-500/40 shadow-lg shadow-black/30' 
@@ -423,7 +434,9 @@ export default function DashboardView({
             </h3>
             <div className="flex items-center justify-between mt-1 text-[9.5px] font-mono text-slate-400">
               <span className="text-indigo-400 font-semibold">{orders.filter(o=>o.paymentStatus === PaymentStatus.PAID).length} Оплачены</span>
-              <span className="text-[9px] text-[#8E939E]">+2 сегодня</span>
+              <span className="text-[9px] text-[#8E939E]">
+                +{orders.filter(o => o.createdAt && o.createdAt.slice(0, 10) === new Date().toISOString().slice(0, 10)).length} сегодня
+              </span>
             </div>
             <div className="flex items-center gap-1 mt-1 text-[8.5px] font-mono text-slate-555">
               <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-pulse" />
@@ -490,7 +503,13 @@ export default function DashboardView({
               {formatCurrency(calculatedBalances.commonFund)}
             </h3>
             <div className="flex items-center gap-1 mt-1.5 text-[10px] font-mono text-slate-500">
-              <span>Дельта: +4.2%</span>
+              <span>
+                {(() => {
+                  const prevCommon = 50000;
+                  const delta = prevCommon > 0 ? ((calculatedBalances.commonFund - prevCommon) / prevCommon) * 100 : 0;
+                  return `Дельта: ${delta >= 0 ? '+' : ''}${delta.toFixed(1)}%`;
+                })()}
+              </span>
             </div>
             <div className="flex items-center gap-1 mt-1 text-[8.5px] font-mono text-slate-555">
               <span className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse" />

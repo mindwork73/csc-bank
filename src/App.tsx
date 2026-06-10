@@ -41,6 +41,7 @@ export default function App() {
   // Primary persistent state
   const [state, setState] = useState<CSCState>(() => getStoredState());
   const [currentTab, setCurrentTab] = useState<string>('dashboard');
+  const [settingsSubTab, setSettingsSubTab] = useState<string>('general');
   const [darkMode, setDarkMode] = useState<boolean>(true);
   const [globalSearch, setGlobalSearch] = useState<string>('');
   const [currentRole, setCurrentRole] = useState<'root' | 'admin' | 'finance' | 'operations' | 'logistics' | 'readonly'>('root');
@@ -56,9 +57,49 @@ export default function App() {
     }, 4500);
   };
 
-  // Persist state updates on change
+  // Load state from custom server-side state storage on boot
+  useEffect(() => {
+    async function fetchServerState() {
+      try {
+        const res = await fetch('/api/state');
+        if (res.ok) {
+          const serverState = await res.json();
+          if (serverState && !serverState.error) {
+            console.log("State loaded successfully from Cloud Server database storage.");
+            setState(serverState);
+          } else {
+            // First time, push the initial state as seed to server
+            await fetch('/api/state', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(state)
+            });
+          }
+        }
+      } catch (err) {
+        console.warn("Server state endpoint unavailable, running in local-only fallback:", err);
+      }
+    }
+    fetchServerState();
+  }, []);
+
+  // Persist state updates on change (both local & server state with debounce)
   useEffect(() => {
     saveState(state);
+    
+    const serverSyncTimer = setTimeout(async () => {
+      try {
+        await fetch('/api/state', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(state)
+        });
+      } catch (e) {
+        // Silent catch for dev server restarts or local instances
+      }
+    }, 1500);
+
+    return () => clearTimeout(serverSyncTimer);
   }, [state]);
 
   // Recalculate partner metrics dynamically
@@ -362,7 +403,17 @@ export default function App() {
             finance={state.finance}
             members={state.members}
             calculatedBalances={calculatedBalances}
-            onSwitchTab={setCurrentTab}
+            onSwitchTab={(tab) => {
+              if (['analytics', 'import', 'audit', 'journal'].includes(tab)) {
+                setCurrentTab('settings');
+                setSettingsSubTab(tab);
+              } else {
+                setCurrentTab(tab);
+                if (tab === 'settings') {
+                  setSettingsSubTab('general');
+                }
+              }
+            }}
             darkMode={darkMode}
             logs={state.logs || []}
             currentRole={currentRole}
@@ -424,50 +475,10 @@ export default function App() {
             onShowToast={showToast}
           />
         );
-      case 'analytics':
-        return (
-          <AnalyticsView 
-            orders={state.orders}
-            finance={state.finance}
-            members={state.members}
-            parcels={state.parcels}
-            darkMode={darkMode}
-          />
-        );
-      case 'import':
-        return (
-          <ImportView 
-            onImportOrders={handleImportOrders}
-            onImportParcels={handleImportParcels}
-            onImportFinance={handleImportFinance}
-            onClearFinance={handleClearFinance}
-            onAddLog={(action, type) => addAuditLog(action, type, 'IMPORT_SESSION')}
-            darkMode={darkMode}
-            importHistory={state.importHistory || []}
-            onAddImportSession={handleAddImportSession}
-            currentRole={currentRole}
-            onShowToast={showToast}
-          />
-        );
       case 'journal':
-        return (
-          <JournalView
-            importHistory={state.importHistory || []}
-            onAddLog={(action, type) => addAuditLog(action, type ?? 'Order', 'IMPORT_SESSION')}
-            darkMode={darkMode}
-          />
-        );
       case 'audit':
-        return (
-          <AuditView
-            logs={state.logs || []}
-            darkMode={darkMode}
-            onClearLogs={() => {
-              setState(prev => ({ ...prev, logs: [] }));
-              addAuditLog('Журнал аудита очищен пользователем', 'TeamMember', 'SYSTEM');
-            }}
-          />
-        );
+      case 'import':
+      case 'analytics':
       case 'settings':
         return (
           <SettingsView 
@@ -475,6 +486,7 @@ export default function App() {
             members={state.members}
             orders={state.orders}
             finance={state.finance}
+            parcels={state.parcels}
             calculatedBalances={calculatedBalances}
             onAddFinanceEntry={handleAddFinanceEntry}
             onUpdateSettings={handleUpdateSettings}
@@ -483,6 +495,18 @@ export default function App() {
             darkMode={darkMode}
             currentRole={currentRole}
             onShowToast={showToast}
+            activeSubTab={settingsSubTab}
+            onActiveSubTabChange={setSettingsSubTab}
+            onImportOrders={handleImportOrders}
+            onImportParcels={handleImportParcels}
+            onImportFinance={handleImportFinance}
+            onClearFinance={handleClearFinance}
+            importHistory={state.importHistory || []}
+            onAddImportSession={handleAddImportSession}
+            onClearLogs={() => {
+              setState(prev => ({ ...prev, logs: [] }));
+              addAuditLog('Журнал аудита очищен пользователем', 'TeamMember', 'SYSTEM');
+            }}
           />
         );
       default:
@@ -494,7 +518,17 @@ export default function App() {
     <>
       <Sidebar
         currentTab={currentTab}
-        setCurrentTab={setCurrentTab}
+        setCurrentTab={(tab) => {
+          if (['analytics', 'import', 'audit', 'journal'].includes(tab)) {
+            setCurrentTab('settings');
+            setSettingsSubTab(tab);
+          } else {
+            setCurrentTab(tab);
+            if (tab === 'settings') {
+              setSettingsSubTab('general');
+            }
+          }
+        }}
         darkMode={darkMode}
         setDarkMode={setDarkMode}
         globalSearch={globalSearch}

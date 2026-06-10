@@ -10,7 +10,9 @@ import {
   AuditLog,
   Order,
   FinanceEntry,
-  FinanceType
+  FinanceType,
+  Parcel,
+  ImportSession
 } from '../types';
 import { 
   Settings, 
@@ -34,12 +36,17 @@ import {
   HelpCircle,
   FileText
 } from 'lucide-react';
+import AnalyticsView from './AnalyticsView';
+import ImportView from './ImportView';
+import AuditView from './AuditView';
+import JournalView from './JournalView';
 
 interface SettingsViewProps {
   settings: AppSettings;
   members: TeamMember[];
   orders?: Order[];
   finance?: FinanceEntry[];
+  parcels?: Parcel[];
   calculatedBalances?: {
     commonFund: number;
     members: Record<string, number>;
@@ -49,8 +56,17 @@ interface SettingsViewProps {
   onUpdateMembers: (members: TeamMember[]) => void;
   auditLogs: AuditLog[];
   darkMode?: boolean;
-  currentRole?: string;
+  currentRole?: 'root' | 'admin' | 'finance' | 'operations' | 'logistics' | 'readonly';
   onShowToast?: (message: string, type?: 'success' | 'info' | 'warning' | 'error') => void;
+  activeSubTab: string;
+  onActiveSubTabChange: (tab: string) => void;
+  onImportOrders: (orders: Order[]) => void;
+  onImportParcels: (parcels: Parcel[]) => void;
+  onImportFinance: (finance: FinanceEntry[]) => void;
+  onClearFinance: () => void;
+  importHistory: ImportSession[];
+  onAddImportSession: (session: ImportSession) => void;
+  onClearLogs?: () => void;
 }
 
 export default function SettingsView({
@@ -58,6 +74,7 @@ export default function SettingsView({
   members,
   orders = [],
   finance = [],
+  parcels = [],
   calculatedBalances = { commonFund: 0, members: {} },
   onAddFinanceEntry,
   onUpdateSettings,
@@ -65,7 +82,16 @@ export default function SettingsView({
   auditLogs,
   darkMode = true,
   currentRole = 'root',
-  onShowToast
+  onShowToast,
+  activeSubTab = 'general',
+  onActiveSubTabChange,
+  onImportOrders,
+  onImportParcels,
+  onImportFinance,
+  onClearFinance,
+  importHistory = [],
+  onAddImportSession,
+  onClearLogs
 }: SettingsViewProps) {
   // Check role-based capabilities
   const isPrivileged = currentRole === 'root' || currentRole === 'admin';
@@ -248,16 +274,72 @@ export default function SettingsView({
         </div>
       </div>
 
-      {!isPrivileged && (
-        <div className="p-3.5 rounded-xl border border-rose-500/25 bg-rose-500/5 text-rose-400 text-xs font-mono flex items-start gap-2.5">
-          <Lock className="h-4.5 w-4.5 shrink-0 animate-bounce" />
-          <div>
-            <span className="font-bold">Вы вошли в режиме только для чтения:</span> изменения пошлин, обменных ставок казначейства и сплит-долей партнеров CSC Group заблокированы. Для проведения изменений переключите роль доступа в правом верхнем угле терминала.
-          </div>
-        </div>
-      )}
+      {/* HORIZONTAL SEGMENTED VIEW SELECTOR */}
+      <div className={`flex border-b text-xs font-mono font-bold leading-none py-1 overflow-x-auto gap-4 ${
+        darkMode ? 'border-[#1D212A]' : 'border-slate-200'
+      }`}>
+        <button
+          type="button"
+          onClick={() => onActiveSubTabChange('general')}
+          className={`pb-3 border-b-2 transition-all px-1.5 focus:outline-none flex items-center gap-1.5 ${
+            activeSubTab === 'general'
+              ? 'border-indigo-500 text-indigo-400 font-bold'
+              : 'border-transparent text-slate-500 hover:text-slate-300'
+          }`}
+        >
+          <Settings className="h-3.5 w-3.5" />
+          <span>Казначейство и Доли</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => onActiveSubTabChange('import')}
+          className={`pb-3 border-b-2 transition-all px-1.5 focus:outline-none flex items-center gap-1.5 ${
+            activeSubTab === 'import' || activeSubTab === 'journal'
+              ? 'border-indigo-500 text-indigo-400 font-bold'
+              : 'border-transparent text-slate-500 hover:text-slate-300'
+          }`}
+        >
+          <Coins className="h-3.5 w-3.5" />
+          <span>Импорт Google Таблиц / CSV</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => onActiveSubTabChange('analytics')}
+          className={`pb-3 border-b-2 transition-all px-1.5 focus:outline-none flex items-center gap-1.5 ${
+            activeSubTab === 'analytics'
+              ? 'border-indigo-500 text-indigo-400 font-bold'
+              : 'border-transparent text-slate-500 hover:text-slate-300'
+          }`}
+        >
+          <Briefcase className="h-3.5 w-3.5" />
+          <span>Аналитика маржи P&L</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => onActiveSubTabChange('audit')}
+          className={`pb-3 border-b-2 transition-all px-1.5 focus:outline-none flex items-center gap-1.5 ${
+            activeSubTab === 'audit'
+              ? 'border-indigo-500 text-indigo-400 font-bold'
+              : 'border-transparent text-slate-500 hover:text-slate-300'
+          }`}
+        >
+          <History className="h-3.5 w-3.5" />
+          <span>Аудит действий</span>
+        </button>
+      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      {activeSubTab === 'general' && (
+        <>
+          {!isPrivileged && (
+            <div className="p-3.5 rounded-xl border border-rose-500/25 bg-rose-500/5 text-rose-400 text-xs font-mono flex items-start gap-2.5">
+              <Lock className="h-4.5 w-4.5 shrink-0 animate-bounce" />
+              <div>
+                <span className="font-bold">Вы вошли в режиме только для чтения:</span> изменения пошлин, обменных ставок казначейства и сплит-долей партнеров CSC Group заблокированы. Для проведения изменений переключите роль доступа в правом верхнем угле терминала.
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
         {/* CURRENCY & FOREX SETTING (4 cols) */}
         <div className={`lg:col-span-4 p-5 rounded-xl border space-y-4 transition-colors ${
@@ -686,6 +768,50 @@ export default function SettingsView({
             </form>
           </div>
         </div>
+      )}
+
+        </>
+      )}
+
+      {activeSubTab === 'import' && (
+        <ImportView 
+          onImportOrders={onImportOrders}
+          onImportParcels={onImportParcels}
+          onImportFinance={onImportFinance}
+          onClearFinance={onClearFinance}
+          onAddLog={(action, type) => {}}
+          darkMode={darkMode}
+          importHistory={importHistory}
+          onAddImportSession={onAddImportSession}
+          currentRole={currentRole}
+          onShowToast={onShowToast}
+        />
+      )}
+
+      {activeSubTab === 'analytics' && (
+        <AnalyticsView 
+          orders={orders}
+          finance={finance}
+          members={members}
+          parcels={parcels}
+          darkMode={darkMode}
+        />
+      )}
+
+      {activeSubTab === 'audit' && (
+        <AuditView
+          logs={auditLogs}
+          darkMode={darkMode}
+          onClearLogs={onClearLogs}
+        />
+      )}
+
+      {activeSubTab === 'journal' && (
+        <JournalView
+          importHistory={importHistory}
+          darkMode={darkMode}
+          onAddLog={(action, type) => {}}
+        />
       )}
 
     </div>

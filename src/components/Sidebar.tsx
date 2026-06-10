@@ -90,32 +90,13 @@ export default function Sidebar({
   // Grouped Navigation Items matching instructions
   const navigationGroups = [
     {
-      title: 'Операции',
+      title: 'Основное управление',
       items: [
         { id: 'dashboard', label: 'Консоль / Cockpit', icon: TrendingUp },
         { id: 'orders', label: 'Заказы / CRM', icon: ShoppingCart },
-        { id: 'parcels', label: 'Логистика Англии', icon: Package },
-      ]
-    },
-    {
-      title: 'Финансы и Анализ',
-      items: [
         { id: 'finance', label: 'Бухучет / Ledger', icon: Wallet },
-        { id: 'analytics', label: 'Аналитика маржи', icon: PieChart },
-      ]
-    },
-    {
-      title: 'Контроль и Аудит',
-      items: [
-        { id: 'journal', label: 'Sync Журнал', icon: History },
-        { id: 'audit', label: 'Аудит систем', icon: ClipboardList },
-      ]
-    },
-    {
-      title: 'Конфигурация',
-      items: [
-        { id: 'import', label: 'Импорт Списков', icon: Import },
-        { id: 'settings', label: 'Настройки системы', icon: Settings },
+        { id: 'parcels', label: 'Логистика Англии', icon: Package },
+        { id: 'settings', label: 'Настройки и Синхро', icon: Settings },
       ]
     }
   ];
