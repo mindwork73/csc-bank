@@ -100,6 +100,19 @@ export default function OrdersView({
   // Selection state
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
   
+  // Sorting state
+  const [sortField, setSortField] = useState<string>('createdAt');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('desc');
+    }
+  };
+  
   // Slider/Drawer & Modal states
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -164,6 +177,38 @@ export default function OrdersView({
 
     return matchesSearch && matchesStatus && matchesPayment && matchesManager && matchesLiquid && matchesMonth;
   });
+
+  // Sort logic for operation table
+  const sortedOrders = useMemo(() => {
+    const list = [...filteredOrders];
+    list.sort((a, b) => {
+      let valA: any = a[sortField as keyof Order];
+      let valB: any = b[sortField as keyof Order];
+
+      if (sortField === 'margin') {
+        valA = a.clientPrice - a.costPrice;
+        valB = b.clientPrice - b.costPrice;
+      } else if (sortField === 'id_num') {
+        const numA = parseInt(a.id.replace(/\D/g, '')) || 0;
+        const numB = parseInt(b.id.replace(/\D/g, '')) || 0;
+        return sortDirection === 'asc' ? numA - numB : numB - numA;
+      }
+
+      if (valA === undefined || valA === null) return 1;
+      if (valB === undefined || valB === null) return -1;
+
+      if (typeof valA === 'string') {
+        return sortDirection === 'asc' 
+          ? valA.localeCompare(valB) 
+          : valB.localeCompare(valA);
+      } else {
+        return sortDirection === 'asc' 
+          ? valA - valB 
+          : valB - valA;
+      }
+    });
+    return list;
+  }, [filteredOrders, sortField, sortDirection]);
 
   // KPI Calculations inside tab
   const totalVolumeInRub = filteredOrders.reduce((s,o) => s + Number(o.clientPrice), 0);
@@ -612,25 +657,26 @@ export default function OrdersView({
                     type="checkbox"
                     checked={filteredOrders.length > 0 && selectedOrderIds.length === filteredOrders.length}
                     onChange={handleSelectAll}
+                    onClick={(e) => e.stopPropagation()}
                     className={`rounded focus:ring-0 ${
                       darkMode ? 'border-[#2D354B] bg-[#0A0B0E] text-white' : 'border-slate-350 bg-white text-emerald-600'
                     }`}
                   />
                 </th>
-                <th className="py-3.5 px-3">Индекс</th>
-                <th className="py-3.5 px-4">Клиент в Telegram / CRM</th>
-                <th className="py-3.5 px-4">Товары и опции</th>
-                <th className="py-3.5 px-4 text-right">Выкуп</th>
-                <th className="py-3.5 px-4 text-right">Цена для клиента</th>
-                <th className="py-3.5 px-4 text-right">Чистая Дельта</th>
-                <th className="py-3.5 px-4">Статус Заказа</th>
-                <th className="py-3.5 px-4">Статус Кассы</th>
-                <th className="py-3.5 px-4">Куратор</th>
-                <th className="py-3.5 px-4 w-12 text-center">Управление</th>
+                <th onClick={() => handleSort('id_num')} className="py-3.5 px-3 cursor-pointer hover:text-white select-none">Индекс{sortField === 'id_num' ? (sortDirection === 'asc' ? ' 🔼' : ' 🔽') : ''}</th>
+                <th onClick={() => handleSort('contact')} className="py-3.5 px-4 cursor-pointer hover:text-white select-none">Клиент в Telegram / CRM{sortField === 'contact' ? (sortDirection === 'asc' ? ' 🔼' : ' 🔽') : ''}</th>
+                <th onClick={() => handleSort('productName')} className="py-3.5 px-4 cursor-pointer hover:text-white select-none">Товары и опции{sortField === 'productName' ? (sortDirection === 'asc' ? ' 🔼' : ' 🔽') : ''}</th>
+                <th onClick={() => handleSort('costPrice')} className="py-3.5 px-4 text-right cursor-pointer hover:text-white select-none">Выкуп{sortField === 'costPrice' ? (sortDirection === 'asc' ? ' 🔼' : ' 🔽') : ''}</th>
+                <th onClick={() => handleSort('clientPrice')} className="py-3.5 px-4 text-right cursor-pointer hover:text-white select-none">Цена для клиента{sortField === 'clientPrice' ? (sortDirection === 'asc' ? ' 🔼' : ' 🔽') : ''}</th>
+                <th onClick={() => handleSort('margin')} className="py-3.5 px-4 text-right cursor-pointer hover:text-white select-none">Чистая Дельта{sortField === 'margin' ? (sortDirection === 'asc' ? ' 🔼' : ' 🔽') : ''}</th>
+                <th onClick={() => handleSort('orderStatus')} className="py-3.5 px-4 cursor-pointer hover:text-white select-none">Статус Заказа{sortField === 'orderStatus' ? (sortDirection === 'asc' ? ' 🔼' : ' 🔽') : ''}</th>
+                <th onClick={() => handleSort('paymentStatus')} className="py-3.5 px-4 cursor-pointer hover:text-white select-none">Статус Кассы{sortField === 'paymentStatus' ? (sortDirection === 'asc' ? ' 🔼' : ' 🔽') : ''}</th>
+                <th onClick={() => handleSort('assignedTo')} className="py-3.5 px-4 cursor-pointer hover:text-white select-none">Куратор{sortField === 'assignedTo' ? (sortDirection === 'asc' ? ' 🔼' : ' 🔽') : ''}</th>
+                <th className="py-3.5 px-4 w-12 text-center select-none">Управление</th>
               </tr>
             </thead>
             <tbody className={`divide-y ${darkMode ? 'divide-[#1D212A]' : 'divide-[#ECEFF4]'}`}>
-              {filteredOrders.map((order) => {
+              {sortedOrders.map((order) => {
                 const isSelected = selectedOrderIds.includes(order.id);
                 const assignedMember = members.find(m => m.id === order.assignedTo);
                 const margin = order.clientPrice - order.costPrice;
@@ -639,18 +685,19 @@ export default function OrdersView({
                 return (
                   <tr 
                     key={order.id} 
-                    className={`transition-all ${
+                    onClick={() => triggerOrderDrawer(order)}
+                    className={`cursor-pointer transition-all ${
                       darkMode
                         ? isSelected 
-                          ? 'bg-emerald-500/5' 
+                          ? 'bg-emerald-500/5 hover:bg-[#151822]' 
                           : 'hover:bg-[#151822]'
                         : isSelected 
-                          ? 'bg-[#EBFDF5]' 
+                          ? 'bg-[#EBFDF5] hover:bg-slate-50' 
                           : 'hover:bg-slate-50 shadow-inner'
-                    } ${isUnprofitable ? 'bg-red-500/5 hover:bg-red-500/10' : ''}`}
+                    } ${isUnprofitable ? 'bg-rose-500/5 hover:bg-rose-500/10' : ''}`}
                   >
                     {/* Row Selector check */}
-                    <td className="py-3.5 px-4">
+                    <td className="py-3.5 px-4" onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
                         checked={isSelected}
@@ -666,7 +713,7 @@ export default function OrdersView({
                       <span className="flex flex-col">
                         <span>{order.id}</span>
                         {order.hasLiquid && (
-                          <span className="text-[8px] tracking-wide font-extrabold uppercase font-mono text-emerald-400 mt-1">
+                          <span className="text-[8px] tracking-wide font-extrabold uppercase font-mono text-emerald-450 text-emerald-450 mt-1">
                             💧 LIQUID
                           </span>
                         )}
@@ -676,7 +723,7 @@ export default function OrdersView({
                     {/* Client contact info */}
                     <td className="py-3.5 px-4 font-mono">
                       <div>
-                        <p className="font-bold text-slate-200">{order.contact}</p>
+                        <p className="font-bold text-slate-205 text-slate-200">{order.contact}</p>
                         <span className="text-[10px] text-slate-500">Канал: {order.source}</span>
                       </div>
                     </td>
@@ -706,7 +753,7 @@ export default function OrdersView({
                     </td>
 
                     {/* Net Earnings Markup */}
-                    <td className={`py-3.5 px-4 text-right font-mono font-bold ${isUnprofitable ? 'text-rose-400' : 'text-emerald-400'}`}>
+                    <td className={`py-3.5 px-4 text-right font-mono font-bold ${isUnprofitable ? 'text-rose-450' : 'text-emerald-400'}`}>
                       {fmt(margin)}
                     </td>
 
@@ -729,7 +776,7 @@ export default function OrdersView({
                     </td>
 
                     {/* Interactive Side Drawer Trigger button */}
-                    <td className="py-3.5 px-4 text-center">
+                    <td className="py-3.5 px-4 text-center" onClick={(e) => e.stopPropagation()}>
                       <button 
                         onClick={() => triggerOrderDrawer(order)}
                         className={`p-1.5 rounded-lg border transition-all ${
@@ -743,7 +790,7 @@ export default function OrdersView({
                 );
               })}
 
-              {filteredOrders.length === 0 && (
+              {sortedOrders.length === 0 && (
                 <tr>
                   <td colSpan={11} className="py-16 text-center text-slate-500 font-mono text-xs">
                     Ни одного контракта не удовлетворяет условиям селекционных фильтров.
@@ -1155,6 +1202,17 @@ export default function OrdersView({
                     // ====== READ ONLY METADATA INSPECTOR ======
                     <div className="space-y-5 animate-fadeIn font-mono text-[11px]">
                       
+                      {/* Negative margin highlight */}
+                      {selectedOrder.clientPrice < selectedOrder.costPrice && (
+                        <div className="p-3.5 rounded-xl bg-rose-950/40 border border-rose-500/35 text-rose-300 font-mono text-[10px] leading-relaxed flex items-start gap-2.5 animate-pulse">
+                          <AlertTriangle className="h-4 w-4 text-rose-500 flex-shrink-0 mt-0.5" />
+                          <div>
+                            <span className="font-bold text-rose-400 block mb-0.5 uppercase tracking-wider">⚠️ ВНИМАНИЕ: ОТРИЦАТЕЛЬНАЯ ДЕЛЬТА (NEGATIVE PROFIT)</span>
+                            Данная сделка имеет нулевой или убыточный профиль. Проверьте правильность занесения себестоимости выкупа ({fmt(selectedOrder.costPrice)}) и цены для клиента ({fmt(selectedOrder.clientPrice)}).
+                          </div>
+                        </div>
+                      )}
+
                       {/* Grid representing basic business telemetry */}
                       <div className="bg-[#141722] border border-[#222735] rounded-xl p-4 space-y-3.5">
                         <h4 className="font-bold text-xs text-white border-b border-[#222735] pb-1.5 flex items-center justify-between">
@@ -1196,7 +1254,7 @@ export default function OrdersView({
 
                       {/* Financial billing ledger */}
                       <div className="bg-[#141722] border border-[#222735] rounded-xl p-4 space-y-3.5">
-                        <h4 className="font-bold text-xs text-white border-b border-[#222735] pb-1.5">ФИНАНСОВЫЙ БЮДЖЕТ (MONETARY BALANCE)</h4>
+                        <h4 className="font-bold text-xs text-white border-b border-[#222735] pb-1.5 font-sans">ФИНАНСОВЫЙ БЮДЖЕТ (MONETARY BALANCE)</h4>
                         
                         <div className="space-y-2 text-xs font-sans">
                           <div className="flex justify-between items-center text-slate-400">
@@ -1240,6 +1298,60 @@ export default function OrdersView({
                         <p className="text-slate-350 text-xs font-sans leading-relaxed">
                           {selectedOrder.notes || 'Дополнительные операционные пометки отсутствуют. Запись верифицирована.'}
                         </p>
+                      </div>
+
+                      {/* Operational Timeline */}
+                      <div className="bg-[#141722] border border-[#222735] rounded-xl p-4 space-y-3">
+                        <h4 className="font-bold text-xs text-white border-b border-[#222735] pb-1.5 uppercase tracking-wide">
+                          Хронология и логистический статус
+                        </h4>
+                        <div className="relative border-l border-emerald-500/30 ml-2.5 pl-4 space-y-4 text-xs font-sans">
+                          <div className="relative">
+                            <span className="absolute -left-[21.5px] top-1 h-3 w-3 rounded-full border border-emerald-500 bg-emerald-500 shadow shadow-emerald-400" />
+                            <p className="font-bold text-slate-200">Шаг 1: Контракт зарегистрирован в CRM</p>
+                            <span className="text-[10px] text-slate-400 block font-mono">Дата создания: {new Date(selectedOrder.createdAt || Date.now()).toLocaleString()}</span>
+                          </div>
+                          
+                          <div className="relative">
+                            <span className={`absolute -left-[21.5px] top-1 h-3 w-3 rounded-full border ${
+                              ['Выкуплен', 'В пути', 'Получен на склад', 'Передан клиенту'].includes(selectedOrder.orderStatus)
+                                ? 'border-emerald-500 bg-emerald-500 shadow shadow-emerald-400'
+                                : 'border-[#222735] bg-[#0E1015]'
+                            }`} />
+                            <p className="font-bold text-slate-200 font-sans">Шаг 2: Выкуп товара куратором</p>
+                            <span className="text-[10px] text-slate-500 block font-sans">
+                              Текущее состояние: {
+                                ['Выкуплен', 'В пути', 'Получен на склад', 'Передан клиенту'].includes(selectedOrder.orderStatus)
+                                  ? 'Подтверждено и оплачено поставщику'
+                                  : 'Ожидает оплаты/подтверждения выкупа куратором'
+                              }
+                            </span>
+                          </div>
+                          
+                          <div className="relative">
+                            <span className={`absolute -left-[21.5px] top-1 h-3 w-3 rounded-full border ${
+                              selectedOrder.parcelId 
+                                ? 'border-emerald-500 bg-emerald-500 shadow shadow-emerald-400' 
+                                : 'border-[#222735] bg-[#0E1015]'
+                            }`} />
+                            <p className="font-bold text-slate-200">Шаг 3: Логистическая сборка коробки в УК</p>
+                            <span className="text-[10px] text-slate-500 block">
+                              {selectedOrder.parcelId ? `Связано со сборной посылкой ${selectedOrder.parcelId}` : 'Ожидает распределения в сборную посылку Англия-РФ'}
+                            </span>
+                          </div>
+                          
+                          <div className="relative">
+                            <span className={`absolute -left-[21.5px] top-1 h-3 w-3 rounded-full border ${
+                              selectedOrder.orderStatus === OrderStatus.DELIVERED
+                                ? 'border-emerald-500 bg-emerald-500 shadow shadow-emerald-400' 
+                                : 'border-[#222735] bg-[#0E1015]'
+                            }`} />
+                            <p className="font-bold text-slate-200">Шаг 4: Выдача клиенту и инкассация</p>
+                            <span className="text-[10px] text-slate-400 block font-mono">
+                              Статус выдачи: {selectedOrder.orderStatus === OrderStatus.DELIVERED ? 'Вручено получателю 🎉' : 'Ожидает прибытия'} · Касса: {selectedOrder.paymentStatus}
+                            </span>
+                          </div>
+                        </div>
                       </div>
 
                     </div>

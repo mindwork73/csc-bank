@@ -4872,7 +4872,7 @@ export const INITIAL_FINANCE_ENTRIES: FinanceEntry[] = [
   source: "GoogleSheets:BuhUchet"
 },
   {
-  id: "FIN-IMP-680527978",
+  id: "FIN-IMP-680527979",
   type: FinanceType.EXPENSE,
   category: "Логистика",
   amount: 3067,
