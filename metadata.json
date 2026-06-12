@@ -1,6 +1,6 @@
 {
-  "name": "CSC Group Operational Platform",
-  "description": "Premium internal SaaS portal for CSC group orders management, team accounting, common fund ledger, and UK parcel logistics.",
+  "name": "CSC Portal",
+  "description": "Простой внутренний рабочий портал для CSC: заказы, бухучет и посылки через Англию с интеграцией Google Sheets.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

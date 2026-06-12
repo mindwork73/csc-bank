@@ -40,7 +40,7 @@ import AuditView from './components/AuditView';
 export default function App() {
   // Primary persistent state
   const [state, setState] = useState<CSCState>(() => getStoredState());
-  const [currentTab, setCurrentTab] = useState<string>('dashboard');
+  const [currentTab, setCurrentTab] = useState<string>('orders');
   const [settingsSubTab, setSettingsSubTab] = useState<string>('general');
   const [darkMode, setDarkMode] = useState<boolean>(true);
   const [globalSearch, setGlobalSearch] = useState<string>('');
@@ -414,42 +414,6 @@ export default function App() {
   // Tab routing selection
   const renderTabContent = () => {
     switch (currentTab) {
-      case 'dashboard':
-        return (
-          <DashboardView 
-            orders={state.orders}
-            parcels={state.parcels}
-            finance={state.finance}
-            members={state.members}
-            calculatedBalances={calculatedBalances}
-            onSwitchTab={(tab) => {
-              if (['analytics', 'import', 'audit', 'journal'].includes(tab)) {
-                setCurrentTab('settings');
-                setSettingsSubTab(tab);
-              } else {
-                setCurrentTab(tab);
-                if (tab === 'settings') {
-                  setSettingsSubTab('general');
-                }
-              }
-            }}
-            darkMode={darkMode}
-            logs={state.logs || []}
-            currentRole={currentRole}
-            onUpdateOrder={handleUpdateOrder}
-            onSelectOrder={(orderId) => {
-              if (orderId === 'status:PROBLEM') {
-                setCrmStatusFilter('PROBLEM');
-                setCrmNegativeMarginFilter(false);
-                setGlobalSearch('');
-                setCurrentTab('orders');
-              } else {
-                setGlobalSearch(orderId);
-                setCurrentTab('orders');
-              }
-            }}
-          />
-        );
       case 'orders':
         return (
           <OrdersView 
@@ -496,6 +460,7 @@ export default function App() {
             onShowToast={showToast}
           />
         );
+      case 'showcases':
       case 'finance':
         return (
           <FinanceView 
@@ -528,38 +493,19 @@ export default function App() {
             }}
           />
         );
-      case 'journal':
-      case 'audit':
       case 'import':
-      case 'analytics':
-      case 'settings':
         return (
-          <SettingsView 
-            settings={state.settings}
-            members={state.members}
-            orders={state.orders}
-            finance={state.finance}
-            parcels={state.parcels}
-            calculatedBalances={calculatedBalances}
-            onAddFinanceEntry={handleAddFinanceEntry}
-            onUpdateSettings={handleUpdateSettings}
-            onUpdateMembers={handleUpdateMembers}
-            auditLogs={state.logs}
-            darkMode={darkMode}
-            currentRole={currentRole}
-            onShowToast={showToast}
-            activeSubTab={settingsSubTab}
-            onActiveSubTabChange={setSettingsSubTab}
+          <ImportView 
             onImportOrders={handleImportOrders}
             onImportParcels={handleImportParcels}
             onImportFinance={handleImportFinance}
             onClearFinance={handleClearFinance}
+            onAddLog={(action, entityType) => addAuditLog(action, entityType, 'IMPORT_SESSION')}
+            darkMode={darkMode}
             importHistory={state.importHistory || []}
             onAddImportSession={handleAddImportSession}
-            onClearLogs={() => {
-              setState(prev => ({ ...prev, logs: [] }));
-              addAuditLog('Журнал аудита очищен пользователем', 'TeamMember', 'SYSTEM');
-            }}
+            currentRole={currentRole}
+            onShowToast={showToast}
           />
         );
       default:
@@ -572,15 +518,7 @@ export default function App() {
       <Sidebar
         currentTab={currentTab}
         setCurrentTab={(tab) => {
-          if (['analytics', 'import', 'audit', 'journal'].includes(tab)) {
-            setCurrentTab('settings');
-            setSettingsSubTab(tab);
-          } else {
-            setCurrentTab(tab);
-            if (tab === 'settings') {
-              setSettingsSubTab('general');
-            }
-          }
+          setCurrentTab(tab);
         }}
         darkMode={darkMode}
         setDarkMode={setDarkMode}

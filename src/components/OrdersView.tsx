@@ -3,42 +3,26 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Order, 
   Parcel, 
   TeamMember, 
   OrderStatus, 
-  PaymentStatus, 
-  ShippingStatus 
+  PaymentStatus 
 } from '../types';
 import { 
   Search, 
   Plus, 
-  SlidersHorizontal, 
-  CheckCircle2, 
-  Trash2, 
-  AlertTriangle, 
   X, 
-  Clock, 
-  Tag, 
-  User, 
   Edit, 
-  DollarSign, 
-  Eye,
-  Paperclip,
-  CheckCircle,
-  TrendingUp,
-  AlertCircle,
-  FileSpreadsheet,
-  Filter,
-  UserCheck,
-  ChevronRight,
-  ShieldAlert,
-  ArrowRight
+  Trash2, 
+  Package, 
+  Eye, 
+  Check,
+  Calendar,
+  AlertCircle
 } from 'lucide-react';
-
-import { useEffect } from 'react';
 
 interface OrdersViewProps {
   orders: Order[];
@@ -72,329 +56,127 @@ export default function OrdersView({
   darkMode = true,
   currentRole = 'root',
   onShowToast,
-  crmStatusFilter = 'ALL',
-  setCrmStatusFilter,
-  crmPaymentFilter = 'ALL',
-  setCrmPaymentFilter,
-  crmNegativeMarginFilter = false,
-  setCrmNegativeMarginFilter,
   openAddModalOnLoad = false,
   onResetAddModalOnLoad
 }: OrdersViewProps) {
-  // Local Filters state
+  
+  // Local simple filters state
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [paymentFilter, setPaymentFilter] = useState<string>('ALL');
-  const [managerFilter, setManagerFilter] = useState<string>('ALL');
-  const [liquidFilter, setLiquidFilter] = useState<string>('ALL');
-  const [monthFilter, setMonthFilter] = useState<string>('ALL');
-  const [negativeMarginFilter, setNegativeMarginFilter] = useState<boolean>(false);
 
-  // Sync with global custom overrides from Quick Actions
-  useEffect(() => {
-    if (crmStatusFilter) {
-      setStatusFilter(crmStatusFilter);
-    }
-  }, [crmStatusFilter]);
-
-  useEffect(() => {
-    if (crmPaymentFilter) {
-      setPaymentFilter(crmPaymentFilter);
-    }
-  }, [crmPaymentFilter]);
-
-  useEffect(() => {
-    if (crmNegativeMarginFilter !== undefined) {
-      setNegativeMarginFilter(crmNegativeMarginFilter);
-    }
-  }, [crmNegativeMarginFilter]);
-
-  // Dynamically extract all available months of orders
-  const availableMonths = useMemo(() => {
-    const monthsSet = new Set<string>();
-    orders.forEach(o => {
-      if (o.createdAt) {
-        const date = new Date(o.createdAt);
-        if (!isNaN(date.getTime())) {
-          // Format as YYYY-MM
-          const yyyymm = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-          monthsSet.add(yyyymm);
-        }
-      }
-    });
-    return Array.from(monthsSet).sort().reverse(); // descending order
-  }, [orders]);
-
-  const formatMonthName = (yyyymm: string) => {
-    const [year, month] = yyyymm.split('-');
-    const mNum = parseInt(month, 10);
-    const monthsRu = [
-      'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
-      'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
-    ];
-    return `${monthsRu[mNum - 1]} ${year}`;
-  };
-  
-  // Selection state
-  const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
-  
-  // Sorting state
-  const [sortField, setSortField] = useState<string>('createdAt');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-
-  const handleSort = (field: string) => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection('desc');
-    }
-  };
-  
-  // Slider/Drawer & Modal states
+  // Modal and drawer controls
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
 
-  // Trigger modal if requested on load from global actions
+  // Form State for Adding
+  const [addForm, setAddForm] = useState({
+    contact: '',
+    productName: '',
+    costPrice: '',
+    clientPrice: '',
+    orderStatus: OrderStatus.NEW,
+    paymentStatus: PaymentStatus.UNPAID,
+    notes: '',
+    assignedTo: 'mem-ilya',
+    parcelId: ''
+  });
+
   useEffect(() => {
     if (openAddModalOnLoad) {
       setIsAddModalOpen(true);
-      if (onResetAddModalOnLoad) {
-        onResetAddModalOnLoad();
-      }
+      onResetAddModalOnLoad?.();
     }
   }, [openAddModalOnLoad, onResetAddModalOnLoad]);
 
-  // New Order Form state
-  const [newOrderForm, setNewOrderForm] = useState({
-    contact: '',
-    productName: '',
-    costPrice: 0,
-    clientPrice: 0,
-    orderStatus: OrderStatus.NEW,
-    paymentStatus: PaymentStatus.UNPAID,
-    shippingStatus: ShippingStatus.NOT_SHIPPED,
-    shippingType: 'Англия Экспресс',
-    hasLiquid: false,
-    notes: '',
-    assignedTo: 'mem-ilya',
-    parcelId: '',
-    rawTags: '',
-    source: 'Telegram'
-  });
-
-  // Calculate coordinates and metrics
+  // Combined search and basic filter logic
   const searchNormalized = (searchTerm || globalSearch).toLowerCase().trim();
-  
-  const filteredOrders = orders.filter(o => {
-    // 1. Search text
-    const matchesSearch = 
-      o.id.toLowerCase().includes(searchNormalized) ||
-      o.contact.toLowerCase().includes(searchNormalized) ||
-      o.productName.toLowerCase().includes(searchNormalized) ||
-      (o.notes && o.notes.toLowerCase().includes(searchNormalized)) ||
-      o.tags.some(t => t.toLowerCase().includes(searchNormalized));
-    
-    // 2. Status Match
-    const matchesStatus = statusFilter === 'ALL' || o.orderStatus === statusFilter;
-    
-    // 3. Payment Match
-    const matchesPayment = paymentFilter === 'ALL' || o.paymentStatus === paymentFilter;
+  const filteredOrders = useMemo(() => {
+    return orders.filter(o => {
+      const matchesSearch = 
+        o.id.toLowerCase().includes(searchNormalized) ||
+        o.contact.toLowerCase().includes(searchNormalized) ||
+        o.productName.toLowerCase().includes(searchNormalized) ||
+        (o.notes && o.notes.toLowerCase().includes(searchNormalized));
 
-    // 4. Manager Match
-    const matchesManager = managerFilter === 'ALL' || o.assignedTo === managerFilter;
-
-    // 5. Liquid Match
-    const matchesLiquid = 
-      liquidFilter === 'ALL' || 
-      (liquidFilter === 'YES' && o.hasLiquid) || 
-      (liquidFilter === 'NO' && !o.hasLiquid);
-
-    // 6. Month Match
-    let matchesMonth = true;
-    if (monthFilter !== 'ALL' && o.createdAt) {
-      const date = new Date(o.createdAt);
-      if (!isNaN(date.getTime())) {
-        const yyyymm = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-        matchesMonth = yyyymm === monthFilter;
-      } else {
-        matchesMonth = false;
-      }
-    }
-
-    // 7. Negative Margin Match
-    const matchesNegativeMargin = !negativeMarginFilter || (o.clientPrice < o.costPrice && o.orderStatus !== OrderStatus.CANCELLED);
-
-    return matchesSearch && matchesStatus && matchesPayment && matchesManager && matchesLiquid && matchesMonth && matchesNegativeMargin;
-  });
-
-  // Sort logic for operation table
-  const sortedOrders = useMemo(() => {
-    const list = [...filteredOrders];
-    list.sort((a, b) => {
-      let valA: any = a[sortField as keyof Order];
-      let valB: any = b[sortField as keyof Order];
-
-      if (sortField === 'margin') {
-        valA = a.clientPrice - a.costPrice;
-        valB = b.clientPrice - b.costPrice;
-      } else if (sortField === 'id_num') {
-        const numA = parseInt(a.id.replace(/\D/g, '')) || 0;
-        const numB = parseInt(b.id.replace(/\D/g, '')) || 0;
-        return sortDirection === 'asc' ? numA - numB : numB - numA;
+      let matchesStatus = true;
+      if (statusFilter !== 'ALL') {
+        if (statusFilter === 'Новый') matchesStatus = o.orderStatus === OrderStatus.NEW;
+        else if (statusFilter === 'В работе') matchesStatus = o.orderStatus === OrderStatus.IN_PROGRESS;
+        else if (statusFilter === 'Закрыт') matchesStatus = o.orderStatus === OrderStatus.CLOSED;
       }
 
-      if (valA === undefined || valA === null) return 1;
-      if (valB === undefined || valB === null) return -1;
-
-      if (typeof valA === 'string') {
-        return sortDirection === 'asc' 
-          ? valA.localeCompare(valB) 
-          : valB.localeCompare(valA);
-      } else {
-        return sortDirection === 'asc' 
-          ? valA - valB 
-          : valB - valA;
+      let matchesPayment = true;
+      if (paymentFilter !== 'ALL') {
+        if (paymentFilter === 'Оплачен') matchesPayment = o.paymentStatus === PaymentStatus.PAID;
+        else if (paymentFilter === 'Не оплачен') matchesPayment = o.paymentStatus === PaymentStatus.UNPAID;
       }
+
+      return matchesSearch && matchesStatus && matchesPayment;
     });
-    return list;
-  }, [filteredOrders, sortField, sortDirection]);
+  }, [orders, searchNormalized, statusFilter, paymentFilter]);
 
-  // KPI Calculations inside tab
-  const totalVolumeInRub = filteredOrders.reduce((s,o) => s + Number(o.clientPrice), 0);
-  const totalCostInRub = filteredOrders.reduce((s,o) => s + Number(o.costPrice), 0);
-  const calculatedMargin = totalVolumeInRub - totalCostInRub;
-
-  // Handle mass/bulk actions
-  const handleBulkStatusChange = (status: OrderStatus) => {
-    selectedOrderIds.forEach(id => {
-      const o = orders.find(x => x.id === id);
-      if (o) {
-        onUpdateOrder({
-          ...o,
-          orderStatus: status,
-          updatedAt: new Date().toISOString()
-        });
-      }
-    });
-    setSelectedOrderIds([]);
-  };
-
-  const handleBulkPaymentChange = (status: PaymentStatus) => {
-    selectedOrderIds.forEach(id => {
-      const o = orders.find(x => x.id === id);
-      if (o) {
-        onUpdateOrder({
-          ...o,
-          paymentStatus: status,
-          updatedAt: new Date().toISOString()
-        });
-      }
-    });
-    setSelectedOrderIds([]);
-  };
-
-  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.checked) {
-      setSelectedOrderIds(filteredOrders.map(o => o.id));
-    } else {
-      setSelectedOrderIds([]);
-    }
-  };
-
-  const handleRowSelect = (id: string) => {
-    if (selectedOrderIds.includes(id)) {
-      setSelectedOrderIds(selectedOrderIds.filter(x => x !== id));
-    } else {
-      setSelectedOrderIds([...selectedOrderIds, id]);
-    }
-  };
-
-  // Click on order triggers rich side drawer view
-  const triggerOrderDrawer = (order: Order) => {
-    setSelectedOrder(order);
-    setIsEditMode(false);
-  };
-
-  // Handle Form changes for new order
-  const submitNewOrderForm = (e: React.FormEvent) => {
+  // Handle Form changes
+  const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newOrderForm.contact || !newOrderForm.productName) {
-      if (onShowToast) {
-        onShowToast('Пожалуйста, заполните ФИО контакта и Название товара.', 'error');
-      } else {
-        alert('Пожалуйста, заполните ФИО контакта и Название товара.');
-      }
+    if (!addForm.contact.trim() || !addForm.productName.trim()) {
+      onShowToast?.('Заполните поле Контакт и Товар', 'warning');
       return;
     }
 
-    const tagsArray = newOrderForm.rawTags
-      ? newOrderForm.rawTags.split(',').map(t => t.trim()).filter(Boolean)
-      : [];
-
     onAddOrder({
-      contact: newOrderForm.contact,
-      productName: newOrderForm.productName,
-      costPrice: Number(newOrderForm.costPrice) || 0,
-      clientPrice: Number(newOrderForm.clientPrice) || 0,
-      orderStatus: newOrderForm.orderStatus,
-      paymentStatus: newOrderForm.paymentStatus,
-      shippingStatus: newOrderForm.shippingStatus,
-      shippingType: newOrderForm.shippingType,
-      hasLiquid: newOrderForm.hasLiquid,
-      notes: newOrderForm.notes,
-      assignedTo: newOrderForm.assignedTo,
-      parcelId: newOrderForm.parcelId || null,
-      tags: tagsArray,
-      source: newOrderForm.source
+      contact: addForm.contact,
+      productName: addForm.productName,
+      costPrice: Number(addForm.costPrice) || 0,
+      clientPrice: Number(addForm.clientPrice) || 0,
+      orderStatus: addForm.orderStatus,
+      paymentStatus: addForm.paymentStatus,
+      shippingStatus: addForm.orderStatus === OrderStatus.CLOSED ? 'Выдан' as any : 'Не отправлен' as any,
+      shippingType: 'Англия',
+      hasLiquid: false,
+      notes: addForm.notes,
+      assignedTo: addForm.assignedTo,
+      parcelId: addForm.parcelId || null,
+      tags: [],
+      source: 'CRM'
     });
 
-    onShowToast?.('Контракт успешно создан', 'success');
-
-    // Reset Form
-    setNewOrderForm({
+    onShowToast?.('Заказ добавлен', 'success');
+    setIsAddModalOpen(false);
+    
+    // Reset form
+    setAddForm({
       contact: '',
       productName: '',
-      costPrice: 0,
-      clientPrice: 0,
+      costPrice: '',
+      clientPrice: '',
       orderStatus: OrderStatus.NEW,
       paymentStatus: PaymentStatus.UNPAID,
-      shippingStatus: ShippingStatus.NOT_SHIPPED,
-      shippingType: 'Англия Экспресс',
-      hasLiquid: false,
       notes: '',
       assignedTo: 'mem-ilya',
-      parcelId: '',
-      rawTags: '',
-      source: 'Telegram'
+      parcelId: ''
     });
-
-    setIsAddModalOpen(false);
   };
 
-  // Edit action from the slide detail panel
-  const saveDrawerEdit = (e: React.FormEvent) => {
+  const handleEditSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedOrder) return;
-    onUpdateOrder({
-      ...selectedOrder,
-      updatedAt: new Date().toISOString()
-    });
+    onUpdateOrder(selectedOrder);
     setIsEditMode(false);
-    setSelectedOrder(null);
+    onShowToast?.('Заказ обновлен', 'success');
   };
 
-  const triggerDeleteFromDrawer = () => {
-    if (!selectedOrder) return;
-    if (confirm(`Вы уверены, что хотите удалить заказ ${selectedOrder.id} без возможности восстановления?`)) {
-      onDeleteOrder(selectedOrder.id);
+  const handleDelete = (id: string) => {
+    if (confirm('Вы уверены, что хотите безвозвратно удалить этот заказ?')) {
+      onDeleteOrder(id);
       setSelectedOrder(null);
+      onShowToast?.('Заказ удален', 'info');
     }
   };
 
-  // Helper currency formatters
-  const fmt = (num: number) => {
+  const fmt = (num: number | undefined) => {
+    if (num === undefined || isNaN(num) || num === 0) return '—';
     return new Intl.NumberFormat('ru-RU', { 
       style: 'currency', 
       currency: 'RUB', 
@@ -402,505 +184,207 @@ export default function OrdersView({
     }).format(num);
   };
 
-  // Premium badge look mapping matching requirements
-  const getOrderStatusBadge = (status: OrderStatus) => {
-    let colors = '';
-    switch (status) {
-      case OrderStatus.NEW: 
-        colors = 'bg-[#1D2130] text-[#4ea8de] border-[#2C3854]'; 
-        break;
-      case OrderStatus.IN_PROGRESS: 
-        colors = 'bg-[#181C26] text-indigo-400 border-[#2E364A] font-bold'; 
-        break;
-      case OrderStatus.REDEEMED: 
-        colors = 'bg-[#26201B] text-amber-500 border-[#4D3A2B]'; 
-        break;
-      case OrderStatus.IN_TRANSIT: 
-        colors = 'bg-[#291A25] text-pink-400 border-[#5C2B4E]'; 
-        break;
-      case OrderStatus.WAREHOUSE: 
-        colors = 'bg-[#20172B] text-purple-400 border-[#46286B]'; 
-        break;
-      case OrderStatus.DELIVERED: 
-        colors = 'bg-[#0F2220] text-emerald-400 border-[#1C4D44]'; 
-        break;
-      case OrderStatus.CLOSED: 
-        colors = 'bg-[#161719] text-[#8E939E] border-[#292B2F]'; 
-        break;
-      case OrderStatus.CANCELLED: 
-        colors = 'bg-rose-950/20 text-rose-450 border-rose-900/30 line-through'; 
-        break;
-      case OrderStatus.PROBLEM: 
-        colors = 'bg-red-950/40 text-red-400 border-red-800/40 animate-pulse font-bold'; 
-        break;
-      default: 
-        colors = 'bg-slate-900 text-slate-400 border-slate-700';
-    }
-    return (
-      <span className={`px-2.5 py-1 rounded-md text-[10.5px] font-mono font-bold tracking-tight border ${colors}`}>
-        {status}
-      </span>
-    );
-  };
+  const formatProductLabel = (name: string): string => {
+    if (!name) return '—';
+    const trimmed = name.trim();
+    if (!trimmed) return '—';
 
-  const getPaymentStatusBadge = (p: PaymentStatus) => {
-    let style = '';
-    switch (p) {
-      case PaymentStatus.PAID: 
-        style = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'; 
-        break;
-      case PaymentStatus.PARTIALLY_PAID: 
-        style = 'bg-amber-500/10 text-amber-400 border-amber-500/20'; 
-        break;
-      case PaymentStatus.UNPAID: 
-        style = 'bg-rose-500/10 text-rose-400 border-rose-500/20 font-bold'; 
-        break;
-      case PaymentStatus.DEFERRED: 
-        style = 'bg-sky-500/10 text-sky-400 border-sky-500/25'; 
-        break;
-      case PaymentStatus.REFUNDED: 
-        style = 'bg-zinc-800 text-zinc-400 border-zinc-700'; 
-        break;
-      default: 
-        style = 'bg-slate-950 text-slate-400 border-transparent';
+    // Break by common delimiters to see if there are multiple lines or product separators
+    const parts = trimmed.split(/[\n,;+]/).map(s => s.trim()).filter(Boolean);
+    if (parts.length > 1) {
+      const first = parts[0];
+      const truncFirst = first.length > 25 ? first.slice(0, 25) + '...' : first;
+      const count = parts.length - 1;
+      return `${truncFirst} + ${count} шт`;
     }
-    return (
-      <span className={`px-2 py-0.5 rounded text-[10px] font-mono border ${style}`}>
-        {p}
-      </span>
-    );
-  };
 
-  const getShippingStatusBadge = (s: ShippingStatus) => {
-    let style = '';
-    switch (s) {
-      case ShippingStatus.NOT_SHIPPED:
-        style = 'bg-slate-800 text-slate-500 border-slate-700/50';
-        break;
-      case ShippingStatus.FORMING:
-        style = 'bg-blue-300/10 text-blue-400 border-blue-500/20';
-        break;
-      case ShippingStatus.UK_WAREHOUSE:
-        style = 'bg-amber-300/10 text-amber-400 border-amber-500/20';
-        break;
-      case ShippingStatus.TRANSIT:
-        style = 'bg-indigo-300/10 text-indigo-400 border-indigo-500/25';
-        break;
-      case ShippingStatus.ARRIVED:
-        style = 'bg-teal-300/10 text-teal-400 border-teal-400/20';
-        break;
-      case ShippingStatus.ISSUED:
-        style = 'bg-emerald-300/10 text-emerald-400 border-emerald-500/20';
-        break;
-      default:
-        style = 'bg-slate-900 text-slate-400 border-slate-700';
+    if (trimmed.length > 40) {
+      return trimmed.slice(0, 37) + '...';
     }
-    return (
-      <span className={`px-2 py-0.5 rounded text-[10px] font-mono border ${style}`}>
-        {s || 'Не отправлен'}
-      </span>
-    );
+    return trimmed;
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       
-      {/* SECTION HEADER & CONTROL ROW */}
+      {/* HEADER CONTROLS */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold tracking-tight text-white flex items-center space-x-2">
-            <span>База Заказов клиентов / CRM</span>
+          <h2 className={`text-lg font-bold tracking-tight ${darkMode ? 'text-white' : 'text-slate-800'}`}>
+            База заказов
           </h2>
-          <p className={`text-xs mt-1 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-            Управление заказами, выкупами, финансами, привязкой к посылкам и логистическими кураторами.
+          <p className={`text-[11px] mt-0.5 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+            Ваш простой интерактивный блокнот для ведения сбыта, цен выкупа, общих маржинальных долей и привязки к посылкам.
           </p>
         </div>
 
-        {currentRole === 'readonly' || currentRole === 'logistics' ? (
-          <div className="flex items-center space-x-2 bg-slate-800/25 border border-slate-700/50 px-3 py-2.5 rounded-lg text-slate-400 font-mono text-[10px] uppercase font-bold">
-            <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse"></span>
-            <span>Режим редактирования ограничен ({currentRole})</span>
-          </div>
-        ) : (
+        {currentRole !== 'readonly' ? (
           <button
             onClick={() => setIsAddModalOpen(true)}
-            className={`flex items-center space-x-2 font-mono font-bold text-xs px-4 py-2.5 rounded-lg shadow-lg transition-all ${
-              darkMode 
-                ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-700/10' 
-                : 'bg-emerald-700 hover:bg-emerald-600 text-white shadow-emerald-800/10'
-            }`}
+            className="flex items-center space-x-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold active:scale-95 transition-all shadow-md"
           >
-            <Plus className="h-4 w-4" />
-            <span>Добавить Заказ в CRM</span>
+            <Plus className="h-3.5 w-3.5" />
+            <span>Создать заказ</span>
           </button>
+        ) : (
+          <div className="text-[10px] font-mono text-slate-505 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-lg">
+            Доступ только на чтение ({currentRole})
+          </div>
         )}
       </div>
 
-      {/* STATISTICAL LEDGER RIBBON */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className={`p-4 rounded-xl border ${darkMode ? 'bg-[#11131A] border-[#1D212A]' : 'bg-white border-slate-250'}`}>
-          <span className="text-[10px] uppercase font-mono text-slate-500 font-bold block">Позиций найдено</span>
-          <h4 className="text-xl font-bold font-mono text-white mt-1">{filteredOrders.length} / {orders.length} шт.</h4>
-          <span className="text-[10px] text-slate-500 font-mono mt-1 block">Активная выборка фильтра</span>
+      {/* MINI STATS / OVERVIEW (QUITE & SMALL STATUS BAR) */}
+      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 text-[10.5px] font-mono font-medium text-slate-500 py-1 border-b border-slate-800/10">
+        <div>
+          Реестр: <span className="text-indigo-400 font-semibold">{filteredOrders.length} строк</span>
         </div>
-        <div className={`p-4 rounded-xl border ${darkMode ? 'bg-[#11131A] border-[#1D212A]' : 'bg-white border-slate-250'}`}>
-          <span className="text-[10px] uppercase font-mono text-slate-500 font-bold block">Выручка (Объем продаж)</span>
-          <h4 className="text-xl font-bold font-mono text-white mt-1">{fmt(totalVolumeInRub)}</h4>
-          <span className="text-[10px] text-emerald-400 font-mono mt-1 block">Сумма прайса клиентов</span>
-        </div>
-        <div className={`p-4 rounded-xl border ${darkMode ? 'bg-[#11131A] border-[#1D212A]' : 'bg-white border-slate-250'}`}>
-          <span className="text-[10px] uppercase font-mono text-slate-500 font-bold block">Стоимость Выкупа</span>
-          <h4 className="text-xl font-bold font-mono text-[#A1A5B3] mt-1">{fmt(totalCostInRub)}</h4>
-          <span className="text-[10px] text-slate-500 font-mono mt-1 block">Сумма себестоимости выкупа</span>
-        </div>
-        <div className={`p-4 rounded-xl border ${darkMode ? 'bg-[#11131A] border-[#1D212A]' : 'bg-white border-slate-250'}`}>
-          <span className="text-[10px] uppercase font-mono text-slate-500 font-bold block">Дельта прибыли (Маржа)</span>
-          <h4 className={`text-xl font-bold font-mono mt-1 ${calculatedMargin >= 0 ? 'text-emerald-450' : 'text-rose-400'}`}>
-            {fmt(calculatedMargin)}
-          </h4>
-          <span className="text-[10px] text-slate-500 font-mono mt-1 block">До налога и логистической пошлины</span>
+        <div className="text-[10px] text-slate-600">
+          Кликните на любую строку, чтобы открыть полную карточку заказа
         </div>
       </div>
 
-      {/* ADVANCED RE-STYLED FILTER PANEL */}
-      <div className={`p-4 rounded-xl border space-y-3.5 transition-colors ${
-        darkMode ? 'bg-[#11131A] border-[#1D212A]' : 'bg-white border-slate-300'
+      {/* FILTER PANEL */}
+      <div className={`p-3 rounded-xl border flex flex-wrap items-center gap-3 transition-colors ${
+        darkMode ? 'bg-[#0E1015] border-[#1D212A]' : 'bg-white border-slate-200'
       }`}>
-        <div className="flex items-center space-x-2 text-slate-350 text-xs font-mono font-bold uppercase pb-1 border-b border-dashed border-slate-700/20">
-          <Filter className="h-3.5 w-3.5 text-emerald-400" />
-          <span>Быстрые фильтры оператора:</span>
+        {/* Search */}
+        <div className="relative flex-1 min-w-[200px]">
+          <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
+            <Search className="h-3.5 w-3.5" />
+          </span>
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Поиск по контакту или товару..."
+            className={`w-full pl-8 pr-3 py-1.25 border rounded-lg text-xs outline-none focus:ring-1 focus:ring-indigo-500 ${
+              darkMode ? 'bg-[#141722] border-[#222735] text-white placeholder-slate-650' : 'bg-slate-50 border-slate-200'
+            }`}
+          />
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          
-          {/* Quick Search Input */}
-          <div className="relative w-64">
-            <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-[#585E6A]">
-              <Search className="h-3.5 w-3.5" />
-            </span>
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Поиск по контакту, ID, тегам..."
-              className={`w-full pl-9 pr-3 py-2 border rounded-lg text-xs font-medium focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all ${
-                darkMode ? 'bg-[#0B0D12] border-[#222735] text-[#ECEFF4] placeholder-[#5A6072]' : 'bg-slate-50 border-[#E2E8F0]'
-              }`}
-            />
-          </div>
+        {/* Status */}
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className={`text-xs px-2.5 py-1.25 rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
+            darkMode ? 'bg-[#141722] border-[#222735] text-slate-300' : 'bg-white border-slate-200'
+          }`}
+        >
+          <option value="ALL">Любой статус заказа</option>
+          <option value="Новый">Новый</option>
+          <option value="В работе">В работе</option>
+          <option value="Закрыт">Закрыт</option>
+        </select>
 
-          {/* Status Select Filter */}
-          <div>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className={`text-xs px-3 py-2 rounded-lg focus:outline-none border font-semibold ${
-                darkMode ? 'bg-[#0B0D12] border-[#222735] text-slate-300' : 'bg-slate-50 border-[#E2E8F0]'
-              }`}
-            >
-              <option value="ALL">Все статусы заказа ({orders.length})</option>
-              {Object.values(OrderStatus).map(st => (
-                <option key={st} value={st}>{st}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Payment Filter */}
-          <div>
-            <select
-              value={paymentFilter}
-              onChange={(e) => setPaymentFilter(e.target.value)}
-              className={`text-xs px-3 py-2 rounded-lg focus:outline-none border font-semibold ${
-                darkMode ? 'bg-[#0B0D12] border-[#222735] text-slate-300' : 'bg-slate-50 border-[#E2E8F0]'
-              }`}
-            >
-              <option value="ALL">Вся оплата</option>
-              {Object.values(PaymentStatus).map(st => (
-                <option key={st} value={st}>{st}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Curator Manager Filter */}
-          <div>
-            <select
-              value={managerFilter}
-              onChange={(e) => setManagerFilter(e.target.value)}
-              className={`text-xs px-3 py-2 rounded-lg focus:outline-none border font-semibold ${
-                darkMode ? 'bg-[#0B0D12] border-[#222735] text-slate-300' : 'bg-slate-50 border-[#E2E8F0]'
-              }`}
-            >
-              <option value="ALL">Все кураторы</option>
-              {members.map(m => (
-                <option key={m.id} value={m.id}>{m.name}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Has Liquid filter */}
-          <div>
-            <select
-              value={liquidFilter}
-              onChange={(e) => setLiquidFilter(e.target.value)}
-              className={`text-xs px-3 py-2 rounded-lg focus:outline-none border font-semibold ${
-                darkMode ? 'bg-[#0B0D12] border-[#222735] text-slate-300' : 'bg-slate-50 border-[#E2E8F0]'
-              }`}
-            >
-              <option value="ALL">Жидкость: Любая</option>
-              <option value="YES">Да (Liquid items only)</option>
-              <option value="NO">Нет (Regular items only)</option>
-            </select>
-          </div>
-
-          {/* Month Period Filter */}
-          <div>
-            <select
-              value={monthFilter}
-              onChange={(e) => setMonthFilter(e.target.value)}
-              className={`text-xs px-3 py-2 rounded-lg focus:outline-none border font-semibold ${
-                darkMode ? 'bg-[#0B0D12] border-[#222735] text-emerald-400 border-emerald-500/20' : 'bg-emerald-50 border-[#E2E8F0] text-emerald-700'
-              }`}
-            >
-              <option value="ALL">Все периоды (За все время)</option>
-              {availableMonths.map(m => (
-                <option key={m} value={m}>{formatMonthName(m)}</option>
-              ))}
-            </select>
-          </div>
-
-        </div>
-
-        {/* BULK ACTION PANEL (Only displayed on selections) */}
-        {selectedOrderIds.length > 0 && (
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-lg text-xs font-mono border bg-indigo-950/25 border-indigo-500/20 text-[#D4D6E0] animate-fadeIn">
-            <div className="flex items-center space-x-3">
-              <span className="flex h-2.5 w-2.5 relative">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
-              </span>
-              <span>ВЫБРАННЫЕ ДЛЯ ГРУППОВОЙ КОРРЕКТИРОВКИ: <strong>{selectedOrderIds.length} ПОЗИЦИЙ</strong></span>
-            </div>
-            
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center space-x-1">
-                <span className="text-slate-400 text-[10px] mr-1">ЛОГ СТАТУС:</span>
-                <button 
-                  onClick={() => handleBulkStatusChange(OrderStatus.REDEEMED)}
-                  className="bg-indigo-600 hover:bg-indigo-500 text-[10px] font-bold text-white px-2 py-1 rounded transition-colors"
-                >
-                  Выкуплен
-                </button>
-                <button 
-                  onClick={() => handleBulkStatusChange(OrderStatus.IN_TRANSIT)}
-                  className="bg-indigo-600 hover:bg-indigo-500 text-[10px] font-bold text-white px-2 py-1 rounded transition-colors"
-                >
-                  В пути
-                </button>
-                <button 
-                  onClick={() => handleBulkStatusChange(OrderStatus.DELIVERED)}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-[10px] font-bold text-white px-2 py-1 rounded transition-colors"
-                >
-                  Выдан
-                </button>
-              </div>
-
-              <div className="flex items-center space-x-1">
-                <span className="text-slate-400 text-[10px] mr-1">ОПЛАТА:</span>
-                <button 
-                  onClick={() => handleBulkPaymentChange(PaymentStatus.PAID)}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-[10px] font-bold text-white px-2 py-1 rounded transition-colors"
-                >
-                  Оплачен
-                </button>
-                <button 
-                  onClick={() => handleBulkPaymentChange(PaymentStatus.UNPAID)}
-                  className="bg-rose-600 hover:bg-rose-500 text-[10px] font-bold text-white px-2 py-1 rounded transition-colors"
-                >
-                  УбратьОплату
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Payment */}
+        <select
+          value={paymentFilter}
+          onChange={(e) => setPaymentFilter(e.target.value)}
+          className={`text-xs px-2.5 py-1.25 rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
+            darkMode ? 'bg-[#141722] border-[#222735] text-slate-300' : 'bg-white border-slate-200'
+          }`}
+        >
+          <option value="ALL">Любой статус оплаты</option>
+          <option value="Оплачен">Оплачен</option>
+          <option value="Не оплачен">Не оплачен</option>
+        </select>
       </div>
 
-      {/* CRM HIGH-RESOLUTION OPERATIONS TABLE */}
-      <div className={`border rounded-xl overflow-hidden transition-colors ${
-        darkMode ? 'border-[#1D212A] bg-[#0E1015]' : 'border-slate-350 bg-white'
+      {/* TABLE */}
+      <div className={`border rounded-xl overflow-hidden ${
+        darkMode ? 'border-[#1D212A] bg-[#0E1015]' : 'border-slate-200 bg-white'
       }`}>
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse font-sans text-xs">
-            <thead className={`border-b text-slate-400 font-mono text-[10px] uppercase tracking-wider sticky top-0 z-10 ${
-              darkMode ? 'bg-[#141722] border-[#1D212A]' : 'bg-[#F9FAFC] border-[#E2E8F0]'
+          <table className="w-full text-left border-collapse text-xs">
+            <thead className={`border-b text-slate-500 text-[10px] uppercase font-mono tracking-wider sticky top-0 z-10 ${
+              darkMode ? 'bg-[#141722] border-[#1D212A]' : 'bg-slate-50 border-slate-200'
             }`}>
               <tr>
-                <th className="py-3.5 px-4 w-10">
-                  <input
-                    type="checkbox"
-                    checked={filteredOrders.length > 0 && selectedOrderIds.length === filteredOrders.length}
-                    onChange={handleSelectAll}
-                    onClick={(e) => e.stopPropagation()}
-                    className={`rounded focus:ring-0 ${
-                      darkMode ? 'border-[#2D354B] bg-[#0A0B0E] text-white' : 'border-slate-350 bg-white text-emerald-600'
-                    }`}
-                  />
-                </th>
-                <th onClick={() => handleSort('id_num')} className="py-3.5 px-3 cursor-pointer hover:text-white select-none">Индекс{sortField === 'id_num' ? (sortDirection === 'asc' ? ' 🔼' : ' 🔽') : ''}</th>
-                <th onClick={() => handleSort('contact')} className="py-3.5 px-4 cursor-pointer hover:text-white select-none">Контакт{sortField === 'contact' ? (sortDirection === 'asc' ? ' 🔼' : ' 🔽') : ''}</th>
-                <th onClick={() => handleSort('productName')} className="py-3.5 px-4 cursor-pointer hover:text-white select-none">Товар / услуга{sortField === 'productName' ? (sortDirection === 'asc' ? ' 🔼' : ' 🔽') : ''}</th>
-                <th onClick={() => handleSort('costPrice')} className="py-3.5 px-4 text-right cursor-pointer hover:text-white select-none">Себестоимость{sortField === 'costPrice' ? (sortDirection === 'asc' ? ' 🔼' : ' 🔽') : ''}</th>
-                <th onClick={() => handleSort('clientPrice')} className="py-3.5 px-4 text-right cursor-pointer hover:text-white select-none">Цена клиента{sortField === 'clientPrice' ? (sortDirection === 'asc' ? ' 🔼' : ' 🔽') : ''}</th>
-                <th onClick={() => handleSort('margin')} className="py-3.5 px-4 text-right cursor-pointer hover:text-white select-none">Маржа{sortField === 'margin' ? (sortDirection === 'asc' ? ' 🔼' : ' 🔽') : ''}</th>
-                <th onClick={() => handleSort('orderStatus')} className="py-3.5 px-4 cursor-pointer hover:text-white select-none">Статус Заказа{sortField === 'orderStatus' ? (sortDirection === 'asc' ? ' 🔼' : ' 🔽') : ''}</th>
-                <th onClick={() => handleSort('paymentStatus')} className="py-3.5 px-4 cursor-pointer hover:text-white select-none">Статус Оплаты{sortField === 'paymentStatus' ? (sortDirection === 'asc' ? ' 🔼' : ' 🔽') : ''}</th>
-                <th onClick={() => handleSort('shippingStatus')} className="py-3.5 px-4 cursor-pointer hover:text-white select-none">Статус Доставки{sortField === 'shippingStatus' ? (sortDirection === 'asc' ? ' 🔼' : ' 🔽') : ''}</th>
-                <th onClick={() => handleSort('parcelId')} className="py-3.5 px-4 cursor-pointer hover:text-white select-none">Посылка{sortField === 'parcelId' ? (sortDirection === 'asc' ? ' 🔼' : ' 🔽') : ''}</th>
-                <th onClick={() => handleSort('assignedTo')} className="py-3.5 px-4 cursor-pointer hover:text-white select-none">Ответственный{sortField === 'assignedTo' ? (sortDirection === 'asc' ? ' 🔼' : ' 🔽') : ''}</th>
-                <th onClick={() => handleSort('createdAt')} className="py-3.5 px-4 cursor-pointer hover:text-white select-none">Дата{sortField === 'createdAt' ? (sortDirection === 'asc' ? ' 🔼' : ' 🔽') : ''}</th>
-                <th className="py-3.5 px-4 w-12 text-center select-none">Действия</th>
+                <th className="py-2.5 px-3 w-12 text-center text-slate-500 font-bold">Код</th>
+                <th className="py-2.5 px-3">Контакт</th>
+                <th className="py-2.5 px-3">Товар / услуга</th>
+                <th className="py-2.5 px-3 text-right">Себестоимость</th>
+                <th className="py-2.5 px-3 text-right">Цена клиента</th>
+                <th className="py-2.5 px-3 text-right">Маржа</th>
+                <th className="py-2.5 px-3">Посылка</th>
+                <th className="py-2.5 px-3">Комментарий</th>
+                <th className="py-2.5 px-3">Дата</th>
+                <th className="py-2.5 px-3 w-10 text-center"></th>
               </tr>
             </thead>
-            <tbody className={`divide-y ${darkMode ? 'divide-[#1D212A]' : 'divide-[#ECEFF4]'}`}>
-              {sortedOrders.map((order) => {
-                const isSelected = selectedOrderIds.includes(order.id);
-                const assignedMember = members.find(m => m.id === order.assignedTo);
-                const margin = order.clientPrice - order.costPrice;
-                const isUnprofitable = margin < 0;
-                const creationDate = order.createdAt ? new Date(order.createdAt).toLocaleDateString('ru-RU', {day: 'numeric', month: 'short'}) : '—';
+            <tbody className={`divide-y ${darkMode ? 'divide-[#1D212A]/50' : 'divide-slate-200'}`}>
+              {filteredOrders.map((o) => {
+                const margin = o.clientPrice - o.costPrice;
+                const hasMarginDiff = (o.clientPrice !== 0 && o.costPrice !== 0);
 
                 return (
                   <tr 
-                    key={order.id} 
-                    onClick={() => triggerOrderDrawer(order)}
-                    className={`cursor-pointer transition-all ${
-                      darkMode
-                        ? isSelected 
-                          ? 'bg-emerald-500/5 hover:bg-[#151822]' 
-                          : 'hover:bg-[#151822]'
-                        : isSelected 
-                          ? 'bg-[#EBFDF5] hover:bg-slate-50' 
-                          : 'hover:bg-slate-50 shadow-inner'
-                    } ${isUnprofitable ? 'bg-rose-500/5 hover:bg-rose-500/10' : ''}`}
+                    key={o.id}
+                    onClick={() => { setSelectedOrder(o); setIsEditMode(false); }}
+                    className={`cursor-pointer transition-colors border-b select-none ${
+                      darkMode 
+                        ? 'border-[#141722] hover:bg-[#141722]/60' 
+                        : 'border-slate-100 hover:bg-slate-50'
+                    }`}
                   >
-                    {/* Row Selector check */}
-                    <td className="py-3.5 px-4" onClick={(e) => e.stopPropagation()}>
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => handleRowSelect(order.id)}
-                        className={`rounded ${
-                          darkMode ? 'border-[#2D354B] bg-[#0A0B0E] text-white' : 'border-slate-350 bg-white text-emerald-650'
-                        }`}
-                      />
+                    <td className="py-2 px-3 font-mono font-bold text-slate-500 text-center text-[11px]">
+                      {o.id.replace('ORD-', '')}
                     </td>
-
-                    {/* ID */}
-                    <td className="py-3.5 px-3 font-mono font-bold text-white">
-                      <span className="flex flex-col">
-                        <span>{order.id}</span>
-                        {order.hasLiquid && (
-                          <span className="text-[8px] tracking-wide font-extrabold uppercase font-mono text-emerald-400 mt-1">
-                            💧 LIQUID
-                          </span>
-                        )}
-                      </span>
+                    <td className="py-2 px-3 font-semibold text-white font-mono text-[11.5px] max-w-[120px] truncate" title={o.contact}>
+                      {o.contact || <span className="text-slate-600 font-normal">—</span>}
                     </td>
-
-                    {/* Client contact info */}
-                    <td className="py-3.5 px-4 font-mono">
-                      <div>
-                        <p className="font-bold text-slate-200">{order.contact}</p>
-                        <span className="text-[10px] text-slate-500">{order.source}</span>
-                      </div>
+                    <td className="py-2 px-3 text-slate-300 font-medium text-[11.5px] max-w-[200px] truncate" title={o.productName}>
+                      {formatProductLabel(o.productName)}
                     </td>
-
-                    {/* Product Name & Tags */}
-                    <td className="py-3.5 px-4 font-medium max-w-[180px] truncate">
-                      <div>
-                        <p className="text-[#ECEFF4] font-bold truncate">{order.productName}</p>
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {order.tags.map((tg, i) => (
-                            <span key={i} className="text-[8px] bg-[#1E2332] text-slate-400 border border-[#2E364A] px-1.5 py-0.5 rounded font-mono uppercase">
-                              #{tg}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
+                    <td className="py-2 px-3 text-right font-mono text-slate-400 text-[11.5px]">
+                      {o.costPrice ? fmt(o.costPrice) : <span className="text-slate-600">—</span>}
                     </td>
-
-                    {/* Cost Purchased */}
-                    <td className="py-3.5 px-4 text-right font-mono text-[#8E939E] font-medium">
-                      {fmt(order.costPrice)}
+                    <td className="py-2 px-3 text-right font-mono text-[#4ade80] font-bold text-[11.5px]">
+                      {o.clientPrice ? fmt(o.clientPrice) : <span className="text-slate-600">—</span>}
                     </td>
-
-                    {/* Sold Cost */}
-                    <td className="py-3.5 px-4 text-right font-mono font-bold text-emerald-450 text-emerald-400">
-                      {fmt(order.clientPrice)}
+                    <td className={`py-2 px-3 text-right font-mono font-bold text-[11.5px] ${
+                      margin >= 0 ? 'text-indigo-400' : 'text-rose-450'
+                    }`}>
+                      {hasMarginDiff ? fmt(margin) : <span className="text-slate-600">—</span>}
                     </td>
-
-                    {/* Net Earnings Margin */}
-                    <td className={`py-3.5 px-4 text-right font-mono font-bold ${isUnprofitable ? 'text-rose-450 text-rose-450' : 'text-emerald-400'}`}>
-                      {fmt(margin)}
-                    </td>
-
-                    {/* Order Status Badge */}
-                    <td className="py-3.5 px-4">
-                      {getOrderStatusBadge(order.orderStatus)}
-                    </td>
-
-                    {/* Payment Cash Badge */}
-                    <td className="py-3.5 px-4">
-                      {getPaymentStatusBadge(order.paymentStatus)}
-                    </td>
-
-                    {/* Shipping Status badge */}
-                    <td className="py-3.5 px-4">
-                      {getShippingStatusBadge(order.shippingStatus)}
-                    </td>
-
-                    {/* Bound Parcel */}
-                    <td className="py-3.5 px-4 font-mono text-[10px]">
-                      {order.parcelId ? (
-                        <span className="px-1.5 py-0.5 rounded bg-indigo-950/40 text-indigo-400 border border-indigo-500/15 font-semibold">
-                          {order.parcelId}
+                    <td className="py-2 px-3 font-mono text-[10px]">
+                      {o.parcelId ? (
+                        <span className="bg-indigo-950/40 text-indigo-400 border border-indigo-500/15 px-1.5 py-0.5 rounded font-bold">
+                          {o.parcelId}
                         </span>
                       ) : (
-                        <span className="text-slate-550 text-slate-500">—</span>
+                        <span className="text-slate-600">—</span>
                       )}
                     </td>
-
-                    {/* Assigned Curator Manager */}
-                    <td className="py-3.5 px-4 text-[#8E939E] font-mono font-semibold">
-                      <span className="flex items-center space-x-1.5">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                        <span>{assignedMember?.name || 'НЕТ КУРАТОРА'}</span>
-                      </span>
+                    <td className="py-2 px-3 text-slate-500 truncate max-w-[130px] text-[11px]" title={o.notes}>
+                      {o.notes || <span className="text-slate-650">—</span>}
                     </td>
-
-                    {/* Date */}
-                    <td className="py-3.5 px-4 font-mono text-[#8E939E]">
-                      {creationDate}
+                    <td className="py-2 px-3 text-slate-500 font-mono text-[11px] whitespace-nowrap">
+                      {o.createdAt ? new Date(o.createdAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }) : <span className="text-slate-600">—</span>}
                     </td>
-
-                    {/* Interactive Side Drawer Trigger button */}
-                    <td className="py-3.5 px-4 text-center" onClick={(e) => e.stopPropagation()}>
-                      <button 
-                        onClick={() => triggerOrderDrawer(order)}
-                        className={`p-1.5 rounded-lg border transition-all ${
-                          darkMode ? 'bg-[#141722] border-[#222735] hover:bg-slate-800 text-slate-300' : 'bg-slate-50 border-slate-200 hover:bg-slate-100'
+                    <td className="py-2 px-3 text-center" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        onClick={() => { setSelectedOrder(o); setIsEditMode(false); }}
+                        className={`inline-flex items-center space-x-1 px-1.5 py-0.5 rounded transition-all active:scale-95 border ${
+                          darkMode 
+                            ? 'bg-indigo-950/20 text-indigo-400 border-indigo-500/20 hover:text-white hover:bg-indigo-600 hover:border-indigo-600' 
+                            : 'bg-indigo-50 text-indigo-600 border-indigo-100 hover:text-white hover:bg-indigo-600 hover:border-indigo-600'
                         }`}
+                        title="Посмотреть подробности"
                       >
-                        <Eye className="h-3.5 w-3.5" />
+                        <Eye className="h-3 w-3" />
+                        <span className="text-[9.5px] uppercase font-mono font-bold tracking-tight">Детали</span>
                       </button>
                     </td>
                   </tr>
                 );
               })}
 
-              {sortedOrders.length === 0 && (
+              {filteredOrders.length === 0 && (
                 <tr>
-                  <td colSpan={14} className="py-16 text-center text-slate-500 font-mono text-xs">
-                    Ни одного контракта не удовлетворяет условиям селекционных фильтров.
+                  <td colSpan={10} className="py-12 text-center text-slate-500 italic font-mono">
+                    Заказы не найдены.
                   </td>
                 </tr>
               )}
@@ -909,223 +393,169 @@ export default function OrdersView({
         </div>
       </div>
 
-      {/* ==========================================
-          ADD CRM ORDER GLASS-MODAL DIALOG
-          ========================================== */}
+      {/* CREATE ORDER MODAL */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn">
-          <div className={`w-full max-w-xl rounded-xl border p-6 max-h-[90vh] overflow-y-auto ${
-            darkMode ? 'bg-[#0E1015] border-[#1D212A] text-white' : 'bg-white border-[#E2E8F0] text-slate-900'
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className={`w-full max-w-md rounded-xl border p-5 ${
+            darkMode ? 'bg-[#0E1015] border-[#222735] text-white' : 'bg-white border-slate-250 text-slate-900'
           }`}>
-            <div className="flex items-center justify-between border-b pb-3 mb-4 border-slate-700/20">
-              <h3 className="text-sm uppercase font-mono font-bold tracking-wider text-emerald-450 text-emerald-400">
-                Новый контракт клиента / CRM Add
+            <div className="flex items-center justify-between border-b border-divider border-slate-700/20 pb-3 mb-4">
+              <h3 className="text-xs uppercase font-mono font-bold text-slate-400">
+                Создать новый заказ
               </h3>
-              <button 
-                onClick={() => setIsAddModalOpen(false)}
-                className="text-slate-500 hover:text-white transition-colors"
-              >
-                <X className="h-5 w-5" />
+              <button onClick={() => setIsAddModalOpen(false)} className="text-slate-500 hover:text-white">
+                <X className="h-4.5 w-4.5" />
               </button>
             </div>
 
-            <form onSubmit={submitNewOrderForm} className="space-y-4">
+            <form onSubmit={handleAddSubmit} className="space-y-3.5">
               
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                
-                {/* Client Nickname/Name */}
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-mono uppercase font-bold text-slate-500">ФИО Клиента / Логин @Telegram</label>
-                  <input
-                    type="text"
-                    required
-                    value={newOrderForm.contact}
-                    onChange={(e) => setNewOrderForm({...newOrderForm, contact: e.target.value})}
-                    placeholder="Иван Петров или @PetrovTg"
-                    className={`w-full px-3 py-2 text-xs border rounded-lg focus:ring-1 focus:ring-emerald-500 outline-none ${
-                      darkMode ? 'bg-[#141722] border-[#222735] text-white' : 'bg-slate-50 border-slate-200'
-                    }`}
-                  />
-                </div>
-
-                {/* Lead Source */}
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-mono uppercase font-bold text-slate-500">Источник заказа</label>
-                  <select
-                    value={newOrderForm.source}
-                    onChange={(e) => setNewOrderForm({...newOrderForm, source: e.target.value})}
-                    className={`w-full px-3 py-2 text-xs border rounded-lg focus:ring-1 focus:ring-emerald-500 outline-none ${
-                      darkMode ? 'bg-[#141722] border-[#222735] text-white' : 'bg-slate-50 border-slate-200'
-                    }`}
-                  >
-                    <option value="Telegram">Telegram канал</option>
-                    <option value="WhatsApp">WhatsApp Messenger</option>
-                    <option value="Direct">Личный контакт / Direct</option>
-                    <option value="Sheets Import">Sheets Импорт</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Product Title */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-mono uppercase font-bold text-slate-500">Наименование товара / Комплектация</label>
+              <div className="space-y-1">
+                <label className="text-[10px] font-mono uppercase text-slate-550 block font-bold">Контакт (Telegram или имя):</label>
                 <input
                   type="text"
                   required
-                  value={newOrderForm.productName}
-                  onChange={(e) => setNewOrderForm({...newOrderForm, productName: e.target.value})}
-                  placeholder="Напр. Dyson Airwrap HS05 Complete Long"
-                  className={`w-full px-3 py-2 text-xs border rounded-lg focus:ring-1 focus:ring-emerald-500 outline-none ${
-                    darkMode ? 'bg-[#141722] border-[#222735] text-white' : 'bg-slate-50 border-slate-200'
+                  value={addForm.contact}
+                  onChange={(e) => setAddForm({...addForm, contact: e.target.value})}
+                  placeholder="Например, @tim_vetrov"
+                  className={`w-full px-3 py-1.5 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
+                    darkMode ? 'bg-[#141722] border border-[#222735] text-white' : 'bg-slate-50 border border-slate-200'
                   }`}
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                
-                {/* Cost price Purchasing */}
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-mono uppercase font-bold text-slate-500">Себестоимость выкупа (руб)</label>
+              <div className="space-y-1">
+                <label className="text-[10px] font-mono uppercase text-slate-550 block font-bold">Товар / услуга:</label>
+                <input
+                  type="text"
+                  required
+                  value={addForm.productName}
+                  onChange={(e) => setAddForm({...addForm, productName: e.target.value})}
+                  placeholder="Например, Celine Triomphe Sunglasses"
+                  className={`w-full px-3 py-1.5 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
+                    darkMode ? 'bg-[#141722] border border-[#222735] text-white' : 'bg-slate-50 border border-slate-200'
+                  }`}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3.5">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-mono uppercase text-slate-550 block font-bold">Себестоимость выкупа (руб):</label>
                   <input
                     type="number"
-                    required
-                    value={newOrderForm.costPrice || ''}
-                    onChange={(e) => setNewOrderForm({...newOrderForm, costPrice: Number(e.target.value)})}
-                    placeholder="24500"
-                    className={`w-full px-3 py-2 text-xs border rounded-lg focus:ring-1 focus:ring-emerald-500 outline-none ${
-                      darkMode ? 'bg-[#141722] border-[#222735] text-white' : 'bg-slate-50 border-slate-200'
+                    value={addForm.costPrice}
+                    onChange={(e) => setAddForm({...addForm, costPrice: e.target.value})}
+                    placeholder="Напр. 9500"
+                    className={`w-full px-3 py-1.5 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
+                      darkMode ? 'bg-[#141722] border border-[#222735] text-white' : 'bg-slate-50 border border-slate-200'
                     }`}
                   />
                 </div>
 
-                {/* Client Selling Price */}
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-mono uppercase font-bold text-slate-500">Цена продажи клиенту (руб)</label>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-mono uppercase text-slate-550 block font-bold">Цена для клиента (руб):</label>
                   <input
                     type="number"
-                    required
-                    value={newOrderForm.clientPrice || ''}
-                    onChange={(e) => setNewOrderForm({...newOrderForm, clientPrice: Number(e.target.value)})}
-                    placeholder="38000"
-                    className={`w-full px-3 py-2 text-xs border rounded-lg focus:ring-1 focus:ring-emerald-500 outline-none ${
-                      darkMode ? 'bg-[#141722] border-[#222735] text-white' : 'bg-slate-50 border-slate-200'
-                    }`}
-                  />
-                </div>
-
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                
-                {/* Order Status selector */}
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-mono uppercase font-bold text-slate-500">Статус на старте</label>
-                  <select
-                    value={newOrderForm.orderStatus}
-                    onChange={(e) => setNewOrderForm({...newOrderForm, orderStatus: e.target.value as OrderStatus})}
-                    className={`w-full px-3 py-2 text-xs border rounded-lg focus:ring-1 focus:ring-emerald-500 outline-none ${
-                      darkMode ? 'bg-[#141722] border-[#222735] text-white' : 'bg-slate-50 border-slate-200'
-                    }`}
-                  >
-                    {Object.values(OrderStatus).map(st => (
-                      <option key={st} value={st}>{st}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Start Payment status */}
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-mono uppercase font-bold text-slate-500">Текущий платеж</label>
-                  <select
-                    value={newOrderForm.paymentStatus}
-                    onChange={(e) => setNewOrderForm({...newOrderForm, paymentStatus: e.target.value as PaymentStatus})}
-                    className={`w-full px-3 py-2 text-xs border rounded-lg focus:ring-1 focus:ring-emerald-500 outline-none ${
-                      darkMode ? 'bg-[#141722] border-[#222735] text-white' : 'bg-slate-50 border-slate-200'
-                    }`}
-                  >
-                    {Object.values(PaymentStatus).map(st => (
-                      <option key={st} value={st}>{st}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Curator Assign */}
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-mono uppercase font-bold text-slate-500">Куратор сделки</label>
-                  <select
-                    value={newOrderForm.assignedTo}
-                    onChange={(e) => setNewOrderForm({...newOrderForm, assignedTo: e.target.value})}
-                    className={`w-full px-3 py-2 text-xs border rounded-lg focus:ring-1 focus:ring-emerald-500 outline-none ${
-                      darkMode ? 'bg-[#141722] border-[#222735] text-white' : 'bg-slate-50 border-slate-200'
-                    }`}
-                  >
-                    {members.map(m => (
-                      <option key={m.id} value={m.id}>{m.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-              </div>
-
-              {/* Sub-elements, tags, liquid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="has-liquid"
-                    checked={newOrderForm.hasLiquid}
-                    onChange={(e) => setNewOrderForm({...newOrderForm, hasLiquid: e.target.checked})}
-                    className="rounded text-emerald-600 focus:ring-0 h-4 w-4 bg-[#141722] border-[#222735]"
-                  />
-                  <label htmlFor="has-liquid" className="text-xs font-mono text-slate-350 cursor-pointer select-none">
-                    💧 Содержит парфюм / жидкости (Liquid parcel logic)
-                  </label>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-mono uppercase font-bold text-slate-500 block">Раздельные теги по умолчанию</label>
-                  <input
-                    type="text"
-                    value={newOrderForm.rawTags}
-                    onChange={(e) => setNewOrderForm({...newOrderForm, rawTags: e.target.value})}
-                    placeholder="dyson, airwrap, москва"
-                    className={`w-full px-3 py-2 text-xs border rounded-lg focus:ring-1 focus:ring-emerald-500 outline-none ${
-                      darkMode ? 'bg-[#141722] border-[#222735] text-white' : 'bg-slate-50 border-slate-200'
+                    value={addForm.clientPrice}
+                    onChange={(e) => setAddForm({...addForm, clientPrice: e.target.value})}
+                    placeholder="Напр. 13500"
+                    className={`w-full px-3 py-1.5 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
+                      darkMode ? 'bg-[#141722] border border-[#222735] text-white' : 'bg-slate-50 border border-slate-200'
                     }`}
                   />
                 </div>
               </div>
 
-              {/* Notes */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-mono uppercase font-bold text-slate-500">Короткие заметки для СRM / Логистики</label>
+              <div className="grid grid-cols-2 gap-3.5">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-mono uppercase text-slate-550 block font-bold">Статус заказа:</label>
+                  <select
+                    value={addForm.orderStatus}
+                    onChange={(e) => setAddForm({...addForm, orderStatus: e.target.value as OrderStatus})}
+                    className={`w-full px-2.5 py-1.5 text-xs rounded-lg focus:outline-none ${
+                      darkMode ? 'bg-[#141722] border border-[#222735] text-slate-200' : 'bg-slate-50 border border-slate-250'
+                    }`}
+                  >
+                    <option value={OrderStatus.NEW}>Новый</option>
+                    <option value={OrderStatus.IN_PROGRESS}>В работе</option>
+                    <option value={OrderStatus.CLOSED}>Закрыт</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-mono uppercase text-slate-250 block font-bold">Оплата:</label>
+                  <select
+                    value={addForm.paymentStatus}
+                    onChange={(e) => setAddForm({...addForm, paymentStatus: e.target.value as PaymentStatus})}
+                    className={`w-full px-2.5 py-1.5 text-xs rounded-lg focus:outline-none ${
+                      darkMode ? 'bg-[#141722] border border-[#222735] text-slate-200' : 'bg-slate-50 border border-slate-250'
+                    }`}
+                  >
+                    <option value={PaymentStatus.UNPAID}>Не оплачен</option>
+                    <option value={PaymentStatus.PAID}>Оплачен</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-mono uppercase text-slate-550 block font-bold">Куратор:</label>
+                <select
+                  value={addForm.assignedTo}
+                  onChange={(e) => setAddForm({...addForm, assignedTo: e.target.value})}
+                  className={`w-full px-2.5 py-1.5 text-xs rounded-lg focus:outline-none ${
+                    darkMode ? 'bg-[#141722] border border-[#222735] text-slate-200' : 'bg-slate-50 border border-slate-250'
+                  }`}
+                >
+                  {members.map(m => (
+                    <option key={m.id} value={m.id}>{m.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-mono uppercase text-slate-550 block font-bold">Связать с коробкой Англии:</label>
+                <select
+                  value={addForm.parcelId}
+                  onChange={(e) => setAddForm({...addForm, parcelId: e.target.value})}
+                  className={`w-full px-2.5 py-1.5 text-xs rounded-lg focus:outline-none ${
+                    darkMode ? 'bg-[#141722] border border-[#222735] text-slate-200' : 'bg-slate-50 border border-slate-250'
+                  }`}
+                >
+                  <option value="">Без сборной посылки</option>
+                  {parcels.map(p => (
+                    <option key={p.id} value={p.id}>{p.id} ({p.title})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-mono uppercase text-slate-550 block font-bold">Комментарий:</label>
                 <textarea
-                  value={newOrderForm.notes}
-                  onChange={(e) => setNewOrderForm({...newOrderForm, notes: e.target.value})}
-                  placeholder="Уточнения по выкупу, авиадоставке либо упаковке заменяемых деталей..."
                   rows={2}
-                  className={`w-full px-3 py-2 text-xs border rounded-lg focus:ring-1 focus:ring-emerald-500 outline-none ${
-                    darkMode ? 'bg-[#141722] border-[#222735] text-white animate-fadeIn' : 'bg-slate-50 border-slate-200'
+                  value={addForm.notes}
+                  onChange={(e) => setAddForm({...addForm, notes: e.target.value})}
+                  placeholder="Дополнительные детали..."
+                  className={`w-full px-3 py-1.5 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
+                    darkMode ? 'bg-[#141722] border border-[#222735] text-white' : 'bg-slate-50 border border-slate-200'
                   }`}
                 />
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex items-center justify-end space-x-3.5 pt-4 border-t border-slate-700/20">
+              <div className="flex gap-3.5 pt-3.5 border-t border-slate-700/20 justify-end">
                 <button
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
-                  className={`px-4 py-2 rounded-lg text-xs font-mono font-bold transition-all ${
-                    darkMode ? 'bg-zinc-800 hover:bg-zinc-700 text-slate-300' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                  className={`px-4 py-2 rounded-lg text-xs font-semibold ${
+                    darkMode ? 'bg-zinc-800 text-slate-300' : 'bg-slate-100 text-slate-700'
                   }`}
                 >
                   Отмена
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-lg text-xs font-mono font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-all shadow-md shadow-emerald-700/10"
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 transition-colors rounded-lg text-xs font-semibold text-white"
                 >
-                  Записать контрагента в БД
+                  Создать заказ
                 </button>
               </div>
 
@@ -1134,378 +564,252 @@ export default function OrdersView({
         </div>
       )}
 
-      {/* ==========================================
-          LATERAL SLIDE PANEL DRAWER (CRM DETAILS)
-          ========================================== */}
+      {/* SIDE DRAWER FOR DETAILED INSPECTION & EDIT */}
       {selectedOrder && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/65 backdrop-blur-xs animate-fadeIn">
-          
-          {/* Closer container overlay */}
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-xs animate-fadeIn">
           <div className="flex-1" onClick={() => setSelectedOrder(null)} />
-
-          {/* Drawer sheet container */}
-          <div className={`w-full max-w-lg h-full border-l flex flex-col justify-between p-6 shadow-2xl relative ${
-            darkMode ? 'bg-[#0E1015] border-[#1D212A] text-white' : 'bg-white border-slate-300'
+          
+          <div className={`w-full max-w-sm h-full flex flex-col justify-between p-6 shadow-xl border-l ${
+            darkMode ? 'bg-[#0E1015] border-[#1D212A] text-white' : 'bg-white border-slate-200 text-slate-900'
           }`}>
             
-            {/* Form wrapping whole page for seamless live mutations */}
-            <form onSubmit={saveDrawerEdit} className="h-full flex flex-col justify-between">
+            <form onSubmit={handleEditSubmit} className="h-full flex flex-col justify-between">
               
-              <div>
-                {/* Brand header panel of order */}
-                <div className="flex items-center justify-between pb-4 border-b border-slate-700/20">
-                  <div className="space-y-1">
-                    <span className="text-[10px] font-mono bg-emerald-500/10 text-emerald-400 font-bold border border-emerald-500/15 px-2 py-0.5 rounded">
-                      CRM_DET_WIDGET
-                    </span>
-                    <h3 className="text-sm font-extrabold uppercase font-mono tracking-wider text-[#A1A5B3]">
-                      Сделка {selectedOrder.id}
-                    </h3>
-                  </div>
+              <div className="space-y-5 overflow-y-auto pr-1">
+                
+                {/* Drawer Header */}
+                <div className="flex items-center justify-between pb-3.5 border-b border-slate-700/20">
+                  <span className="text-xs uppercase font-mono font-bold text-indigo-400">
+                    Детали заказа ({selectedOrder.id})
+                  </span>
                   <button 
-                    type="button"
+                    type="button" 
                     onClick={() => setSelectedOrder(null)}
-                    className="p-1 rounded bg-[#141722] hover:bg-slate-800 text-slate-400 border border-[#222735]"
+                    className="text-slate-500 hover:text-white"
                   >
                     <X className="h-4.5 w-4.5" />
                   </button>
                 </div>
 
-                {/* Sub-body parameters */}
-                <div className="py-5 space-y-4 max-h-[75vh] overflow-y-auto pr-1">
-                  
-                  {isEditMode ? (
-                    // ====== EDIT MODE FORM FIELD INTERFACES ======
-                    <div className="space-y-4 animate-fadeIn font-sans text-xs">
-                      
-                      <div className="space-y-1.5">
-                        <label className="text-[10px] font-mono uppercase text-slate-500 font-bold">ФИО / Контакт Telegram</label>
-                        <input 
-                          type="text" 
-                          required
-                          value={selectedOrder.contact}
-                          onChange={(e) => setSelectedOrder({...selectedOrder, contact: e.target.value})}
-                          className="w-full px-3 py-2 bg-[#141722] border border-[#222735] rounded-md outline-none focus:border-indigo-400 text-white font-mono"
-                        />
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <label className="text-[10px] font-mono uppercase text-slate-500 font-bold">Выкупаемый товар</label>
-                        <input 
-                          type="text" 
-                          required
-                          value={selectedOrder.productName}
-                          onChange={(e) => setSelectedOrder({...selectedOrder, productName: e.target.value})}
-                          className="w-full px-3 py-2 bg-[#141722] border border-[#222735] rounded-md outline-none focus:border-indigo-400 text-white font-bold"
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] font-mono uppercase text-slate-500 font-bold">Себестоимость (RUB)</label>
-                          <input 
-                            type="number" 
-                            required
-                            value={selectedOrder.costPrice}
-                            onChange={(e) => {
-                              const val = Number(e.target.value);
-                              setSelectedOrder({
-                                ...selectedOrder, 
-                                costPrice: val,
-                                margin: selectedOrder.clientPrice - val
-                              });
-                            }}
-                            className="w-full px-3 py-2 bg-[#141722] border border-[#222735] rounded-md outline-none text-white font-mono"
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] font-mono uppercase text-slate-500 font-bold">Прайс клиента (RUB)</label>
-                          <input 
-                            type="number" 
-                            required
-                            value={selectedOrder.clientPrice}
-                            onChange={(e) => {
-                              const val = Number(e.target.value);
-                              setSelectedOrder({
-                                ...selectedOrder, 
-                                clientPrice: val,
-                                margin: val - selectedOrder.costPrice
-                              });
-                            }}
-                            className="w-full px-3 py-2 bg-[#141722] border border-[#222735] rounded-md outline-none text-white font-mono font-bold text-emerald-450"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] font-mono uppercase text-[#A1A5B3]">Менеджер сделки</label>
-                          <select
-                            value={selectedOrder.assignedTo}
-                            onChange={(e) => setSelectedOrder({...selectedOrder, assignedTo: e.target.value})}
-                            className="w-full px-3 py-2 bg-[#141722] border border-[#222735] rounded-md text-slate-200 outline-none"
-                          >
-                            {members.map(m => (
-                              <option key={m.id} value={m.id}>{m.name}</option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] font-mono uppercase text-[#A1A5B3]">Сборная коробка ID</label>
-                          <select
-                            value={selectedOrder.parcelId || ''}
-                            onChange={(e) => setSelectedOrder({...selectedOrder, parcelId: e.target.value || null})}
-                            className="w-full px-3 py-2 bg-[#141722] border border-[#222735] rounded-md text-slate-200 outline-none font-mono"
-                          >
-                            <option value="">Без сборной посылки</option>
-                            {parcels.map(p => (
-                              <option key={p.id} value={p.id}>{p.id} - {p.title.slice(0, 20)}</option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] font-mono uppercase text-slate-500">Lifecycle статус</label>
-                          <select
-                            value={selectedOrder.orderStatus}
-                            onChange={(e) => setSelectedOrder({...selectedOrder, orderStatus: e.target.value as OrderStatus})}
-                            className="w-full px-3 py-2 bg-[#141722] border border-[#222735] rounded-md text-slate-200 text-xs font-semibold"
-                          >
-                            {Object.values(OrderStatus).map(st => (
-                              <option key={st} value={st}>{st}</option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] font-mono uppercase text-slate-500">Статус Оплаты</label>
-                          <select
-                            value={selectedOrder.paymentStatus}
-                            onChange={(e) => setSelectedOrder({...selectedOrder, paymentStatus: e.target.value as PaymentStatus})}
-                            className="w-full px-3 py-2 bg-[#141722] border border-[#222735] rounded-md text-white font-semibold"
-                          >
-                            {Object.values(PaymentStatus).map(st => (
-                              <option key={st} value={st}>{st}</option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <label className="text-[10px] font-mono uppercase text-slate-500">Заметки оператора</label>
-                        <textarea
-                          value={selectedOrder.notes || ''}
-                          onChange={(e) => setSelectedOrder({...selectedOrder, notes: e.target.value})}
-                          rows={3}
-                          className="w-full px-3 py-2 bg-[#141722] border border-[#222735] rounded-md text-slate-200 outline-none text-xs"
-                        />
-                      </div>
-
+                {isEditMode ? (
+                  // EDITING IN DRAWER
+                  <div className="space-y-4">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-mono text-slate-500 uppercase font-bold">Контакт:</label>
+                      <input
+                        type="text"
+                        required
+                        value={selectedOrder.contact}
+                        onChange={(e) => setSelectedOrder({...selectedOrder, contact: e.target.value})}
+                        className="w-full text-xs px-2.5 py-1.5 bg-[#141722] border border-[#222735] rounded-lg text-white"
+                      />
                     </div>
-                  ) : (
-                    // ====== READ ONLY METADATA INSPECTOR ======
-                    <div className="space-y-5 animate-fadeIn font-mono text-[11px]">
-                      
-                      {/* Negative margin highlight */}
-                      {selectedOrder.clientPrice < selectedOrder.costPrice && (
-                        <div className="p-3.5 rounded-xl bg-rose-950/40 border border-rose-500/35 text-rose-300 font-mono text-[10px] leading-relaxed flex items-start gap-2.5 animate-pulse">
-                          <AlertTriangle className="h-4 w-4 text-rose-500 flex-shrink-0 mt-0.5" />
-                          <div>
-                            <span className="font-bold text-rose-400 block mb-0.5 uppercase tracking-wider">⚠️ ВНИМАНИЕ: ОТРИЦАТЕЛЬНАЯ ДЕЛЬТА (NEGATIVE PROFIT)</span>
-                            Данная сделка имеет нулевой или убыточный профиль. Проверьте правильность занесения себестоимости выкупа ({fmt(selectedOrder.costPrice)}) и цены для клиента ({fmt(selectedOrder.clientPrice)}).
-                          </div>
-                        </div>
-                      )}
 
-                      {/* Grid representing basic business telemetry */}
-                      <div className="bg-[#141722] border border-[#222735] rounded-xl p-4 space-y-3.5">
-                        <h4 className="font-bold text-xs text-white border-b border-[#222735] pb-1.5 flex items-center justify-between">
-                          <span>ОПЕРАЦИОННЫЙ ЛИСТ</span> 
-                          <span className="text-[9px] text-[#8E939E]">CSC-AUDIT_v1</span>
-                        </h4>
-
-                        <div className="grid grid-cols-2 gap-y-3 gap-x-4">
-                          <div>
-                            <span className="text-[#585E6A] block text-[9px] font-bold uppercase">Получатель в Telegram:</span>
-                            <span className="text-slate-200 text-xs font-bold font-sans mt-0.5 block">{selectedOrder.contact}</span>
-                          </div>
-                          <div>
-                            <span className="text-[#585E6A] block text-[9px] font-bold uppercase">Индекс куратора:</span>
-                            <span className="text-slate-200 mt-0.5 block font-bold">{members.find(m => m.id === selectedOrder.assignedTo)?.name || 'Не назначен'}</span>
-                          </div>
-                          <div>
-                            <span className="text-[#585E6A] block text-[9px] font-bold uppercase">Канал привлечения:</span>
-                            <span className="text-slate-400 mt-0.5 block">{selectedOrder.source}</span>
-                          </div>
-                          <div>
-                            <span className="text-[#585E6A] block text-[9px] font-bold uppercase">Сборный грузовой бокс:</span>
-                            <span className="text-indigo-400 mt-0.5 block font-bold">
-                              {selectedOrder.parcelId ? `${selectedOrder.parcelId} 📦` : 'ОЖИДАЕТ РАСПРЕДЕЛЕНИЯ'}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-[#585E6A] block text-[9px] font-bold uppercase">Тип Авиа-Доставки:</span>
-                            <span className="text-pink-400 mt-0.5 block font-bold">{selectedOrder.shippingType}</span>
-                          </div>
-                          <div>
-                            <span className="text-[#585E6A] block text-[9px] font-bold uppercase">Опции Парфюмерии:</span>
-                            <span className="text-slate-300 mt-0.5 block">
-                              {selectedOrder.hasLiquid ? '🔴 СОДЕРЖИТ СБОРНУЮ ЖИДКОСТЬ' : 'Regular cargo box'}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Financial billing ledger */}
-                      <div className="bg-[#141722] border border-[#222735] rounded-xl p-4 space-y-3.5">
-                        <h4 className="font-bold text-xs text-white border-b border-[#222735] pb-1.5 font-sans">ФИНАНСОВЫЙ БЮДЖЕТ (MONETARY BALANCE)</h4>
-                        
-                        <div className="space-y-2 text-xs font-sans">
-                          <div className="flex justify-between items-center text-slate-400">
-                            <span>Стоимость выкупа (Себестоимость):</span>
-                            <span className="font-mono font-bold text-white">{fmt(selectedOrder.costPrice)}</span>
-                          </div>
-
-                          <div className="flex justify-between items-center text-slate-400">
-                            <span>Прайс для клиента (Выручка):</span>
-                            <span className="font-mono font-bold text-indigo-300">{fmt(selectedOrder.clientPrice)}</span>
-                          </div>
-
-                          <div className="h-0.5 bg-[#222735]" />
-
-                          <div className="flex justify-between items-center">
-                            <span className="font-bold text-white">Вычисленная маржа (Валовая прибыль):</span>
-                            <span className={`font-mono font-bold text-sm ${
-                              (selectedOrder.clientPrice - selectedOrder.costPrice) >= 0 ? 'text-emerald-450 text-emerald-400' : 'text-rose-455 text-rose-400'
-                            }`}>
-                              {fmt(selectedOrder.clientPrice - selectedOrder.costPrice)}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Display Status indicators */}
-                      <div className="space-y-2.5">
-                        <div>
-                          <span className="text-slate-500 font-bold block pb-1 text-[9px] uppercase">СТАТУС ИСПОЛНЕНИЯ:</span>
-                          <div className="pt-1.5">{getOrderStatusBadge(selectedOrder.orderStatus)}</div>
-                        </div>
-                        <div className="pt-1">
-                          <span className="text-slate-500 font-bold block pb-1 text-[9px] uppercase">ИНКАССАЦИОННЫЙ СТАТУС:</span>
-                          <div className="pt-1">{getPaymentStatusBadge(selectedOrder.paymentStatus)}</div>
-                        </div>
-                      </div>
-
-                      {/* Display notes */}
-                      <div className="bg-slate-900/45 p-3 rounded-lg border border-dashed border-slate-800">
-                        <span className="text-slate-500 block text-[9.5px] font-bold uppercase mb-1">МЕМОРАНДУМ ОПЕРАТОРА (NOTES)</span>
-                        <p className="text-slate-350 text-xs font-sans leading-relaxed">
-                          {selectedOrder.notes || 'Дополнительные операционные пометки отсутствуют. Запись верифицирована.'}
-                        </p>
-                      </div>
-
-                      {/* Operational Timeline */}
-                      <div className="bg-[#141722] border border-[#222735] rounded-xl p-4 space-y-3">
-                        <h4 className="font-bold text-xs text-white border-b border-[#222735] pb-1.5 uppercase tracking-wide">
-                          Хронология и логистический статус
-                        </h4>
-                        <div className="relative border-l border-emerald-500/30 ml-2.5 pl-4 space-y-4 text-xs font-sans">
-                          <div className="relative">
-                            <span className="absolute -left-[21.5px] top-1 h-3 w-3 rounded-full border border-emerald-500 bg-emerald-500 shadow shadow-emerald-400" />
-                            <p className="font-bold text-slate-200">Шаг 1: Контракт зарегистрирован в CRM</p>
-                            <span className="text-[10px] text-slate-400 block font-mono">Дата создания: {new Date(selectedOrder.createdAt || Date.now()).toLocaleString()}</span>
-                          </div>
-                          
-                          <div className="relative">
-                            <span className={`absolute -left-[21.5px] top-1 h-3 w-3 rounded-full border ${
-                              ['Выкуплен', 'В пути', 'Получен на склад', 'Передан клиенту'].includes(selectedOrder.orderStatus)
-                                ? 'border-emerald-500 bg-emerald-500 shadow shadow-emerald-400'
-                                : 'border-[#222735] bg-[#0E1015]'
-                            }`} />
-                            <p className="font-bold text-slate-200 font-sans">Шаг 2: Выкуп товара куратором</p>
-                            <span className="text-[10px] text-slate-500 block font-sans">
-                              Текущее состояние: {
-                                ['Выкуплен', 'В пути', 'Получен на склад', 'Передан клиенту'].includes(selectedOrder.orderStatus)
-                                  ? 'Подтверждено и оплачено поставщику'
-                                  : 'Ожидает оплаты/подтверждения выкупа куратором'
-                              }
-                            </span>
-                          </div>
-                          
-                          <div className="relative">
-                            <span className={`absolute -left-[21.5px] top-1 h-3 w-3 rounded-full border ${
-                              selectedOrder.parcelId 
-                                ? 'border-emerald-500 bg-emerald-500 shadow shadow-emerald-400' 
-                                : 'border-[#222735] bg-[#0E1015]'
-                            }`} />
-                            <p className="font-bold text-slate-200">Шаг 3: Логистическая сборка коробки в УК</p>
-                            <span className="text-[10px] text-slate-500 block">
-                              {selectedOrder.parcelId ? `Связано со сборной посылкой ${selectedOrder.parcelId}` : 'Ожидает распределения в сборную посылку Англия-РФ'}
-                            </span>
-                          </div>
-                          
-                          <div className="relative">
-                            <span className={`absolute -left-[21.5px] top-1 h-3 w-3 rounded-full border ${
-                              selectedOrder.orderStatus === OrderStatus.DELIVERED
-                                ? 'border-emerald-500 bg-emerald-500 shadow shadow-emerald-400' 
-                                : 'border-[#222735] bg-[#0E1015]'
-                            }`} />
-                            <p className="font-bold text-slate-200">Шаг 4: Выдача клиенту и инкассация</p>
-                            <span className="text-[10px] text-slate-400 block font-mono">
-                              Статус выдачи: {selectedOrder.orderStatus === OrderStatus.DELIVERED ? 'Вручено получателю 🎉' : 'Ожидает прибытия'} · Касса: {selectedOrder.paymentStatus}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-mono text-slate-500 uppercase font-bold">Товар / услуга:</label>
+                      <input
+                        type="text"
+                        required
+                        value={selectedOrder.productName}
+                        onChange={(e) => setSelectedOrder({...selectedOrder, productName: e.target.value})}
+                        className="w-full text-xs px-2.5 py-1.5 bg-[#141722] border border-[#222735] rounded-lg text-white"
+                      />
                     </div>
-                  )}
 
-                  {/* Operational audits logs stamps */}
-                  <div className="pt-3 border-t border-slate-900 font-mono text-[9px] text-slate-500 space-y-1">
-                    <p>СОЗДАН: {new Date(selectedOrder.createdAt).toLocaleString()}</p>
-                    {selectedOrder.updatedAt && (
-                      <p>ИЗМЕНЕН ОПЕРАТОРОМ: {new Date(selectedOrder.updatedAt).toLocaleString()}</p>
-                    )}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-mono text-slate-500 uppercase font-bold font-bold">Себестоимость:</label>
+                        <input
+                          type="number"
+                          value={selectedOrder.costPrice}
+                          onChange={(e) => setSelectedOrder({...selectedOrder, costPrice: Number(e.target.value)})}
+                          className="w-full text-xs px-2.5 py-1.5 bg-[#141722] border border-[#222735] rounded-lg text-white"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-mono text-slate-500 uppercase font-bold">Цена клиента:</label>
+                        <input
+                          type="number"
+                          value={selectedOrder.clientPrice}
+                          onChange={(e) => setSelectedOrder({...selectedOrder, clientPrice: Number(e.target.value)})}
+                          className="w-full text-xs px-2.5 py-1.5 bg-[#141722] border border-[#222735] rounded-lg text-white font-bold text-emerald-400"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-mono text-slate-500 uppercase font-bold">Статус заказа:</label>
+                        <select
+                          value={selectedOrder.orderStatus}
+                          onChange={(e) => setSelectedOrder({...selectedOrder, orderStatus: e.target.value as OrderStatus})}
+                          className="w-full text-xs px-2.5 py-1.5 bg-[#141722] border border-[#222735] rounded-lg text-white"
+                        >
+                          <option value={OrderStatus.NEW}>Новый</option>
+                          <option value={OrderStatus.IN_PROGRESS}>В работе</option>
+                          <option value={OrderStatus.CLOSED}>Закрыт</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-mono text-slate-500 uppercase font-bold">Оплата:</label>
+                        <select
+                          value={selectedOrder.paymentStatus}
+                          onChange={(e) => setSelectedOrder({...selectedOrder, paymentStatus: e.target.value as PaymentStatus})}
+                          className="w-full text-xs px-2.5 py-1.5 bg-[#141722] border border-[#222735] rounded-lg text-white"
+                        >
+                          <option value={PaymentStatus.UNPAID}>Не оплачен</option>
+                          <option value={PaymentStatus.PAID}>Оплачен</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-mono text-slate-500 uppercase font-bold">Связанная коробка:</label>
+                      <select
+                        value={selectedOrder.parcelId || ''}
+                        onChange={(e) => setSelectedOrder({...selectedOrder, parcelId: e.target.value || null})}
+                        className="w-full text-xs px-2.5 py-1.5 bg-[#141722] border border-[#222735] rounded-lg text-white font-mono"
+                      >
+                        <option value="">Без сборной посылки</option>
+                        {parcels.map(p => (
+                          <option key={p.id} value={p.id}>{p.id} ({p.title})</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-mono text-slate-500 uppercase font-bold">Комментарий:</label>
+                      <textarea
+                        value={selectedOrder.notes || ''}
+                        onChange={(e) => setSelectedOrder({...selectedOrder, notes: e.target.value})}
+                        rows={3}
+                        className="w-full text-xs px-2.5 py-1.5 bg-[#141722] border border-[#222735] rounded-lg text-white"
+                      />
+                    </div>
                   </div>
+                ) : (
+                  // READ-ONLY DISPLAY IN DRAWER
+                  <div className="space-y-4 text-xs font-sans">
+                    
+                    <div className="p-3 bg-[#141722] rounded-lg border border-[#222735]">
+                      <span className="text-[10px] uppercase font-mono text-slate-500 block font-semibold">Покупатель:</span>
+                      <p className="font-bold text-white text-sm mt-0.5 font-mono">{selectedOrder.contact}</p>
+                    </div>
 
-                </div>
+                    <div className="p-3 bg-[#141722] rounded-lg border border-[#222735]">
+                      <span className="text-[10px] uppercase font-mono text-slate-500 block font-semibold">Товар / Услуга (Полное наименование):</span>
+                      <p className="text-slate-200 text-xs font-medium mt-1 leading-relaxed bg-[#0E1015] p-2 rounded border border-[#2D3343]/30 whitespace-pre-wrap select-all font-mono">
+                        {selectedOrder.productName}
+                      </p>
+                    </div>
+
+                    <div className="p-3 bg-[#141722] rounded-lg border border-[#222735] space-y-2.5">
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Себестоимость выкупа:</span>
+                        <span className="font-mono text-white font-semibold">{fmt(selectedOrder.costPrice)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Стоимость продажи:</span>
+                        <span className="font-mono text-emerald-400 font-bold">{fmt(selectedOrder.clientPrice)}</span>
+                      </div>
+                      <div className="h-px bg-slate-800/60" />
+                      
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-xs font-bold">
+                          <span className="text-white">Чистая Маржа:</span>
+                          <span className={`font-mono ${
+                            (selectedOrder.clientPrice - selectedOrder.costPrice) >= 0 ? 'text-indigo-400' : 'text-rose-400'
+                          }`}>
+                            {fmt(selectedOrder.clientPrice - selectedOrder.costPrice)}
+                          </span>
+                        </div>
+                        <div className="text-[9.5px] font-mono text-slate-500 text-right leading-none">
+                          Формула: {selectedOrder.clientPrice || 0} ₽ - {selectedOrder.costPrice || 0} ₽
+                        </div>
+                        {selectedOrder.clientPrice > 0 && (
+                          <div className="text-[9.5px] font-mono text-indigo-400/80 text-right leading-none pt-1">
+                            Рентабельность: {(((selectedOrder.clientPrice - selectedOrder.costPrice) / selectedOrder.clientPrice) * 100).toFixed(1)}%
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="p-3 bg-[#141722] rounded-lg border border-[#222735]">
+                        <span className="text-[10px] uppercase font-mono text-slate-550 block font-semibold">Статус заказа:</span>
+                        <span className="text-indigo-400 font-bold font-mono text-xs block mt-1">{selectedOrder.orderStatus}</span>
+                      </div>
+                      <div className="p-3 bg-[#141722] rounded-lg border border-[#222735]">
+                        <span className="text-[10px] uppercase font-mono text-slate-550 block font-semibold">Оплата:</span>
+                        <span className="text-emerald-400 font-bold font-mono text-xs block mt-1">{selectedOrder.paymentStatus}</span>
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-[#141722] rounded-lg border border-[#222735]">
+                      <span className="text-[10px] uppercase font-mono text-slate-550 block font-semibold">Связанная коробка Англии:</span>
+                      <span className="font-mono text-slate-200 mt-1 block">
+                        {selectedOrder.parcelId ? (
+                          <span className="bg-indigo-950 text-indigo-400 px-2 py-0.5 rounded border border-indigo-500/20 font-bold">
+                            📦 {selectedOrder.parcelId}
+                          </span>
+                        ) : (
+                          <span className="text-slate-500 font-normal">Не привязан к коробке</span>
+                        )}
+                      </span>
+                    </div>
+
+                    <div className="p-3 bg-[#141722] rounded-lg border border-[#222735]">
+                      <span className="text-[10px] uppercase font-mono text-slate-550 block font-semibold">Источник данных:</span>
+                      <span className="font-mono text-slate-350 block mt-1">
+                        {selectedOrder.source === 'SHEET' ? (
+                          <span className="text-amber-400 font-semibold">📊 Google Таблица / Импорт</span>
+                        ) : (
+                          <span className="text-sky-400 font-semibold">💻 Добавлено вручную</span>
+                        )}
+                      </span>
+                    </div>
+
+                    <div className="p-3 bg-slate-900/40 rounded-lg border border-slate-800">
+                      <span className="text-[10px] uppercase font-mono text-slate-500 block">Бухгалтерские пометки / Комментарии:</span>
+                      <p className="text-slate-300 mt-1 italic whitespace-pre-wrap">{selectedOrder.notes || '—'}</p>
+                    </div>
+
+                  </div>
+                )}
+                
               </div>
 
-              {/* ACTION FOOTER BAR */}
+              {/* Drawer Footer Actions */}
               <div className="border-t border-slate-700/20 pt-4 flex items-center justify-between">
-                
-                {/* Trash delete button */}
-                <button
-                  type="button"
-                  onClick={triggerDeleteFromDrawer}
-                  className="flex items-center space-x-1.5 text-xs text-rose-500 hover:text-rose-400 font-mono font-bold transition-colors"
-                  title="Удалить безвозвратно"
-                >
-                  <Trash2 className="h-4 w-4" />
-                  <span>Уничтожить</span>
-                </button>
+                {currentRole !== 'readonly' ? (
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(selectedOrder.id)}
+                    className="flex items-center space-x-1 text-xs text-rose-500 hover:text-rose-400 font-bold font-mono transition-colors"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    <span>Удалить</span>
+                  </button>
+                ) : <div />}
 
-                <div className="flex items-center space-x-3 font-mono">
+                <div className="flex gap-2 font-mono">
                   {isEditMode ? (
                     <>
                       <button
                         type="button"
                         onClick={() => setIsEditMode(false)}
-                        className={`text-xs px-3.5 py-2.5 rounded-lg font-bold transition-all ${
-                          darkMode ? 'bg-zinc-800 text-slate-300' : 'bg-slate-100 text-slate-700'
+                        className={`text-xs px-3 py-1.5 rounded font-bold ${
+                          darkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-700'
                         }`}
                       >
                         Отмена
                       </button>
                       <button
                         type="submit"
-                        className="text-xs px-4 py-2.5 rounded-lg font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-all shadow-md shadow-emerald-700/10"
+                        className="text-xs px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded"
                       >
-                        Сохранить в реестр
+                        Сохранить
                       </button>
                     </>
                   ) : (
@@ -1513,23 +817,25 @@ export default function OrdersView({
                       <button
                         type="button"
                         onClick={() => setSelectedOrder(null)}
-                        className={`text-xs px-3.5 py-2.5 rounded-lg font-bold transition-all ${
-                          darkMode ? 'bg-zinc-850 hover:bg-zinc-800 text-[#8E939E]' : 'bg-slate-100 text-slate-700'
+                        className={`text-xs px-3 py-1.5 rounded font-bold ${
+                          darkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-700'
                         }`}
                       >
-                        Закрыть панель
+                        Закрыть
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => setIsEditMode(true)}
-                        className="text-xs px-4  py-2.5 rounded-lg font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition-all shadow-md"
-                      >
-                        Редактировать
-                      </button>
+                      
+                      {currentRole !== 'readonly' && (
+                        <button
+                          type="button"
+                          onClick={() => setIsEditMode(true)}
+                          className="text-xs px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded"
+                        >
+                          Редактировать
+                        </button>
+                      )}
                     </>
                   )}
                 </div>
-
               </div>
 
             </form>
